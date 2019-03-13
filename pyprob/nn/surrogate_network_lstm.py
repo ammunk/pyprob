@@ -3,8 +3,9 @@ import torch.nn as nn
 from termcolor import colored
 
 from . import EmbeddingFeedForward, InferenceNetwork, SurrogateAddressTransition, SurrogateNormal
-from .. import util
+from .. import util, state
 from ..distributions import Normal, Uniform, Categorical, Poisson
+from ..trace import Variable, Trace
 
 
 class SurrogateNetworkLSTM(InferenceNetwork):
@@ -232,3 +233,44 @@ class SurrogateNetworkLSTM(InferenceNetwork):
 
             batch_loss += sub_batch_loss + surrogate_loss
         return True, batch_loss / batch.size
+
+    def get_surrogate_forward(self, original_forward=lambda x: x):
+        self._original_forward = original_forward
+        return self._surrogate_forward
+
+    def _surrogate_forward(self, *args, **kwargs):
+        """
+        Rewrite the forward function otherwise specified by the user.
+
+        This forward function uses the surrogate model as joint distribution
+
+        """
+        # sample initial address
+        address = self._layers_address_transitions["init"](None).sample()
+        prev_variable = None
+        while address != "end":
+            surrogate_dist = self._layers_surrogate_distributions[address]
+            current_variable = Variable(distribution=surrogate_dist.dist_type,
+                                        address=address, value=None)
+            _, lstm_output = self.run_lstm_step(current_variable, prev_variable)
+            address_dist = self._layers_address_transitions[address]
+            lstm_output = lstm_output.squeeze(0) # squeeze the sequence dimension
+            dist = surrogate_dist(lstm_output)
+            value = state.sample(distribution=dist)
+            prev_variable = Variable(distribution=surrogate_dist.dist_type, address=address, value=value)
+
+            smp = util.to_tensor(value)
+            sample_embedding = self._layers_sample_embedding[address](smp)
+            address_transition_input = torch.cat([lstm_output, sample_embedding], dim=1)
+            a_dist = address_dist(address_transition_input)
+            address = a_dist.sample()
+
+            if address == "unknown":
+                # if an address is unknown default to the simulator
+                # by resetting the _current_trace
+                state._current_trace = Trace()
+                self._original_forward(*args, **kwargs)
+                break
+
+        return None
+

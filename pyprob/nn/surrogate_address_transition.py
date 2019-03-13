@@ -8,15 +8,15 @@ from ..distributions import Categorical
 
 class SurrogateAddressTransition(nn.Module):
 
-    def __init__(self, input_shape, address=None, num_layers=2, first_address=False, last_address=False):
+    def __init__(self, input_shape, next_address=None, num_layers=2, first_address=False, last_address=False):
         super().__init__()
         input_shape = util.to_size(input_shape)
         self._output_shape = torch.Size([2])
         self._first_address = first_address
         self._last_address = last_address
-        if address:
-            self._addresses = [address]
-            self._address_to_class = {address: torch.Tensor([0])}
+        if next_address:
+            self._addresses = [next_address]
+            self._address_to_class = {next_address: torch.Tensor([0])}
         else:
             self._addresses = ["end"]
             self._address_to_class = {"end": torch.Tensor([0])}
@@ -26,7 +26,7 @@ class SurrogateAddressTransition(nn.Module):
                                         num_layers=num_layers,
                                         activation=torch.relu,
                                         activation_last=None)
-        self._softmax = nn.Softmax(dim=0)
+        self._softmax = nn.Softmax(dim=1)
 
         self._total_train_iterations = 0
         self._n_classes = 1
@@ -52,8 +52,8 @@ class SurrogateAddressTransition(nn.Module):
         pass
 
     def loss(self, next_addresses):
-        classes = self._transform_to_class(next_addresses).unsqueeze(1)
-        loss = self._categorical.log_prob(classes)
+        classes = self._transform_to_class(next_addresses).to(device=util._device)
+        loss = -self._categorical.log_prob(classes)
         return loss
 
     def _update_transforms(self):

@@ -11,7 +11,6 @@ from . import util, state, TraceMode, PriorInflation, InferenceEngine, Inference
 from .nn import InferenceNetwork as InferenceNetworkBase
 from .nn import OnlineDataset, OfflineDataset, InferenceNetworkFeedForward, InferenceNetworkLSTM, SurrogateNetworkLSTM
 from .remote import ModelServer
-from .trace import Variable, Trace
 
 
 class Model():
@@ -230,44 +229,8 @@ class Model():
             self._inference_network = None
         else:
             self._inference_network = self._inference_surrogate_network
-        self.forward = self._surrogate_forward
+        self.forward = self._surrogate_network.get_surrogate_forward(self._original_forward)
         print('Finished training surrogate model. Any further analysis is made using this surrogate model!')
-
-    def _surrogate_forward(self, *args, **kwargs):
-        """
-       Rewrite the forward function otherwise specified by the user.
-
-        This forward function uses the surrogate model as joint distribution
-
-        """
-        # sample initial address
-        address = self._surrogate_network._layers_address_transitions["init"](None).sample()
-        prev_variable = None
-        while address != "end":
-            surrogate_dist = self._surrogate_network._layers_surrogate_distributions[address]
-            current_variable = Variable(distribution=surrogate_dist.dist_type,
-                                        address=address, value=None)
-            _, lstm_output = self._surrogate_network.run_lstm_step(current_variable, prev_variable)
-            address_dist = self._surrogate_network._layers_address_transitions[address]
-            lstm_output = lstm_output.squeeze(0) # squeeze the sequence dimension
-            dist = surrogate_dist(lstm_output)
-            value = state.sample(distribution=dist)
-            prev_variable = Variable(distribution=surrogate_dist.dist_type, address=address, value=value)
-
-            smp = util.to_tensor(value)
-            sample_embedding = self._surrogate_network._layers_sample_embedding[address](smp)
-            address_transition_input = torch.cat([lstm_output, sample_embedding], dim=1)
-            a_dist = address_dist(address_transition_input)
-            address = a_dist.sample()
-
-            if address == "unknown":
-                # if an address is unknown default to the simulator
-                # by resetting the _current_trace
-                state._current_trace = Trace()
-                self._original_forward(*args, **kwargs)
-                break
-
-        return None
 
     def save_inference_network(self, file_name):
         if self._inference_network is None:
