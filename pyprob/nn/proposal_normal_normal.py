@@ -12,6 +12,7 @@ class ProposalNormalNormal(nn.Module):
         input_shape = util.to_size(input_shape)
         self._output_dim = util.prod(output_shape)
         self._output_shape = torch.Size([-1]) + output_shape
+        print("YAY",self._output_shape)
         self._ff = EmbeddingFeedForward(input_shape=input_shape, output_shape=torch.Size([self._output_dim * 2]), num_layers=num_layers, activation=torch.relu, activation_last=None)
         self._total_train_iterations = 0
 

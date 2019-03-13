@@ -9,8 +9,9 @@ from termcolor import colored
 from .distributions import Empirical
 from . import util, state, TraceMode, PriorInflation, InferenceEngine, InferenceNetwork, Optimizer, LearningRateScheduler, AddressDictionary
 from .nn import InferenceNetwork as InferenceNetworkBase
-from .nn import OnlineDataset, OfflineDataset, InferenceNetworkFeedForward, InferenceNetworkLSTM
+from .nn import OnlineDataset, OfflineDataset, InferenceNetworkFeedForward, InferenceNetworkLSTM, SurrogateNetworkLSTM
 from .remote import ModelServer
+from .trace import Variable, Trace
 
 
 class Model():
@@ -18,6 +19,7 @@ class Model():
         super().__init__()
         self.name = name
         self._inference_network = None
+        self._surrogate_netowork = None
         if address_dict_file_name is None:
             self._address_dictionary = None
         else:
@@ -175,6 +177,97 @@ class Model():
 
         self._inference_network.to(device=util._device)
         self._inference_network.optimize(num_traces=num_traces, dataset=dataset, dataset_valid=dataset_valid, num_traces_end=num_traces_end, batch_size=batch_size, valid_every=valid_every, optimizer_type=optimizer_type, learning_rate_init=learning_rate_init, learning_rate_end=learning_rate_end, learning_rate_scheduler_type=learning_rate_scheduler_type, momentum=momentum, weight_decay=weight_decay, save_file_name_prefix=save_file_name_prefix, save_every_sec=save_every_sec, distributed_backend=distributed_backend, distributed_params_sync_every_iter=distributed_params_sync_every_iter, distributed_num_buckets=distributed_num_buckets, dataloader_offline_num_workers=dataloader_offline_num_workers, stop_with_bad_loss=stop_with_bad_loss, log_file_name=log_file_name)
+
+    def learn_surrogate_inference_network(self, num_traces, num_traces_end=1e9,
+                                          prior_inflation=PriorInflation.DISABLED, dataset_dir=None,
+                                          dataset_valid_dir=None, observe_embeddings={}, batch_size=64,
+                                          valid_size=None, valid_every=None, optimizer_type=Optimizer.ADAM,
+                                          learning_rate_init=0.001, learning_rate_end=1e-6,
+                                          learning_rate_scheduler_type=LearningRateScheduler.NONE, momentum=0.9,
+                                          weight_decay=0., save_file_name_prefix=None, save_every_sec=600,
+                                          pre_generate_layers=True, distributed_backend=None,
+                                          distributed_params_sync_every_iter=10000, distributed_num_buckets=10,
+                                          dataloader_offline_num_workers=0, stop_with_bad_loss=True,
+                                          log_file_name=None, ic=False):
+
+        if dataset_dir is None:
+            dataset = OnlineDataset(model=self, prior_inflation=prior_inflation)
+        else:
+            dataset = OfflineDataset(dataset_dir=dataset_dir)
+
+        if dataset_valid_dir is None:
+            dataset_valid = None
+        else:
+            dataset_valid = OfflineDataset(dataset_dir=dataset_valid_dir)
+
+        if ic:
+            self._inference_surrogate_network = InferenceNetworkLSTM(model=self,
+                                                                     observe_embeddings=observe_embeddings,
+                                                                     ic=ic, surrogate=True)
+        else:
+            self._inference_surrogate_network = SurrogateNetworkLSTM(model=self)
+
+        self._inference_surrogate_network.to(device=util._device)
+        self._inference_surrogate_network.optimize(num_traces=num_traces, dataset=dataset,
+                                         dataset_valid=dataset_valid, num_traces_end=num_traces_end,
+                                         batch_size=batch_size, valid_every=valid_every,
+                                         optimizer_type=optimizer_type, learning_rate_init=learning_rate_init,
+                                         learning_rate_end=learning_rate_end,
+                                         learning_rate_scheduler_type=learning_rate_scheduler_type,
+                                         momentum=momentum, weight_decay=weight_decay,
+                                         save_file_name_prefix=save_file_name_prefix,
+                                         save_every_sec=save_every_sec, distributed_backend=distributed_backend,
+                                         distributed_params_sync_every_iter=distributed_params_sync_every_iter,
+                                         distributed_num_buckets=distributed_num_buckets,
+                                         dataloader_offline_num_workers=dataloader_offline_num_workers,
+                                         stop_with_bad_loss=stop_with_bad_loss, log_file_name=log_file_name)
+        # make surrogate network point to inference network (as they share same LSTM)
+        self._surrogate_network = self._inference_surrogate_network
+        self._original_forward = self.forward
+        if not ic:
+            # if inference network is not trained with surrogate they don't share LSTM core
+            # reset the inference network!
+            self._inference_network = None
+        else:
+            self._inference_network = self._inference_surrogate_network
+        self.forward = self._surrogate_forward
+        print('Finished training surrogate model. Any further analysis is made using this surrogate model!')
+
+    def _surrogate_forward(self, *args, **kwargs):
+        """
+       Rewrite the forward function otherwise specified by the user.
+
+        This forward function uses the surrogate model as joint distribution
+
+        """
+        # sample initial address
+        address = self._surrogate_network._layers_address_transitions["init"](None).sample()
+        prev_variable = None
+        while address != "end":
+            surrogate_dist = self._surrogate_network._layers_surrogate_distributions[address]
+            current_variable = Variable(distribution=surrogate_dist.dist_type,
+                                        address=address, value=None)
+            _, lstm_output = self._surrogate_network.run_lstm_step(current_variable, prev_variable)
+            address_dist = self._surrogate_network._layers_address_transitions[address]
+            lstm_output = lstm_output.squeeze(0) # squeeze the sequence dimension
+            dist = surrogate_dist(lstm_output)
+            value = state.sample(distribution=dist)
+            prev_variable = Variable(distribution=surrogate_dist.dist_type, address=address, value=value)
+
+            smp = util.to_tensor(value)
+            sample_embedding = self._surrogate_network._layers_sample_embedding[address](smp)
+            address_transition_input = torch.cat([lstm_output, sample_embedding], dim=1)
+            a_dist = address_dist(address_transition_input)
+            address = a_dist.sample()
+
+            if address == "unknown":
+                # if an address is unknown default to the simulator
+                # by resetting the _current_trace
+                state._current_trace = Trace()
+                self._original_forward(*args, **kwargs)
+                break
+
+        return None
 
     def save_inference_network(self, file_name):
         if self._inference_network is None:
