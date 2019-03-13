@@ -24,6 +24,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
         self._sample_embedding_dim = sample_embedding_dim
         self._address_embedding_dim = address_embedding_dim
         self._distribution_type_embedding_dim = distribution_type_embedding_dim
+        self._addresses_to_return = []
 
         # Surrogate attributes
         self._layers_address_transitions = nn.ModuleDict()
@@ -164,9 +165,10 @@ class SurrogateNetworkLSTM(InferenceNetwork):
 
             # Construct LSTM input sequence for the whole trace length of sub_batch
             lstm_input = []
-            for time_step in range(example_trace.length_controlled):
-                current_variable = example_trace.variables_controlled[time_step]
+            for time_step in range(example_trace.length):
+                current_variable = example_trace.variables[time_step]
                 current_address = current_variable.address
+
                 if current_address not in self._layers_address_embedding and current_address not in self._layers_surrogate_distributions:
                     print(colored('Address unknown by inference network: {}'.format(current_address), 'red', attrs=['bold']))
                     return False, 0
@@ -210,7 +212,10 @@ class SurrogateNetworkLSTM(InferenceNetwork):
             surrogate_loss = 0.
             trace_length = example_trace.length
             for time_step in range(trace_length):
-                address = example_trace.variables[time_step].address
+                current_variable = example_trace.variables[time_step]
+                address = current_variable.address
+                if current_variable.returned:
+                    self._addresses_to_return.append(address)
                 proposal_input = lstm_output[time_step]
                 next_adresses, variable_dist = zip(*[(trace.variables[time_step+1].address
                                                         if time_step < trace_length - 1 else "end",
@@ -248,6 +253,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
         # sample initial address
         address = self._layers_address_transitions["init"](None).sample()
         prev_variable = None
+        variables_to_return = []
         while address != "end":
             surrogate_dist = self._layers_surrogate_distributions[address]
             current_variable = Variable(distribution=surrogate_dist.dist_type,
@@ -257,6 +263,8 @@ class SurrogateNetworkLSTM(InferenceNetwork):
             lstm_output = lstm_output.squeeze(0) # squeeze the sequence dimension
             dist = surrogate_dist(lstm_output)
             value = state.sample(distribution=dist)
+            if address in self._addresses_to_return:
+                variables_to_return.append(value)
             prev_variable = Variable(distribution=surrogate_dist.dist_type, address=address, value=value)
 
             smp = util.to_tensor(value)
@@ -272,5 +280,5 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                 self._original_forward(*args, **kwargs)
                 break
 
-        return None
+        return variables_to_return
 

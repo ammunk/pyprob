@@ -140,7 +140,7 @@ def observe(distribution, value=None, name=None, address=None):
     _current_trace.add(variable)
 
 
-def sample(distribution, control=True, replace=False, name=None, address=None):
+def sample(distribution, control=True, returned=False, replace=False, name=None, address=None):
     global _current_trace
     global _current_trace_previous_variable
     global _current_trace_replaced_variable_proposal_distributions
@@ -272,7 +272,7 @@ def sample(distribution, control=True, replace=False, name=None, address=None):
                             log_prob = distribution.log_prob(value, sum=True)
                             reused = False
 
-        variable = Variable(distribution=distribution, value=value, address_base=address_base, address=address, instance=instance, log_prob=log_prob, log_importance_weight=log_importance_weight, control=control, replace=replace, name=name, observed=observed, reused=reused)
+        variable = Variable(distribution=distribution, value=value, address_base=address_base, address=address, instance=instance, log_prob=log_prob, log_importance_weight=log_importance_weight, control=control, replace=replace, name=name, observed=observed, reused=reused, returned=returned)
         if update_previous_variable:
             _current_trace_previous_variable = variable
 
