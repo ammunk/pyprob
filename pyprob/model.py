@@ -201,8 +201,7 @@ class Model():
 
         if ic:
             self._inference_surrogate_network = InferenceNetworkLSTM(model=self,
-                                                                     observe_embeddings=observe_embeddings,
-                                                                     ic=ic, surrogate=True)
+                                                                     observe_embeddings=observe_embeddings)
         else:
             self._inference_surrogate_network = SurrogateNetworkLSTM(model=self)
 
