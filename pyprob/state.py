@@ -107,7 +107,7 @@ def tag(value, name=None, address=None):
 
     value = util.to_tensor(value)
 
-    variable = Variable(distribution=None, value=value, address_base=address_base, address=address, instance=instance, log_prob=0., tagged=True, name=name)
+    variable = Variable(distribution=None, value=value, address_base=address_base, address=address, instance=instance, log_prob=0., tagged=True, name=name, time_stamp=time.time())
     _current_trace.add(variable)
 
 
@@ -136,7 +136,7 @@ def observe(distribution, value=None, name=None, address=None):
     else:
         log_importance_weight = None
 
-    variable = Variable(distribution=distribution, value=value, address_base=address_base, address=address, instance=instance, log_prob=log_prob, log_importance_weight=log_importance_weight, observed=True, name=name)
+    variable = Variable(distribution=distribution, value=value, address_base=address_base, address=address, instance=instance, log_prob=log_prob, log_importance_weight=log_importance_weight, observed=True, name=name, time_stamp=time.time())
     _current_trace.add(variable)
 
 
@@ -169,7 +169,7 @@ def sample(distribution, control=True, returned=False, replace=False, name=None,
         value = _current_trace_observed_variables[name]
         log_prob = distribution.log_prob(value, sum=True)
         log_importance_weight = float(log_prob)
-        variable = Variable(distribution=distribution, value=value, address_base=address_base, address=address, instance=instance, log_prob=log_prob, log_importance_weight=log_importance_weight, observed=True, name=name)
+        variable = Variable(distribution=distribution, value=value, address_base=address_base, address=address, instance=instance, log_prob=log_prob, log_importance_weight=log_importance_weight, observed=True, name=name, time_stamp=time.time())
     else:
         reused = False
         observed = False
@@ -191,7 +191,7 @@ def sample(distribution, control=True, returned=False, replace=False, name=None,
                 log_importance_weight = 0  # log_importance_weight is zero when running importance sampling with prior as proposal
             elif _inference_engine == InferenceEngine.IMPORTANCE_SAMPLING_WITH_INFERENCE_NETWORK:
                 if control:
-                    variable = Variable(distribution=distribution, value=None, address_base=address_base, address=address, instance=instance, log_prob=0., control=control, replace=replace, name=name, observed=observed, reused=reused)
+                    variable = Variable(distribution=distribution, value=None, address_base=address_base, address=address, instance=instance, log_prob=0., control=control, replace=replace, name=name, observed=observed, reused=reused, time_stamp=time.time())
                     if replace:
                         # TODO: address not in _current_trace_replaced_variable_proposal_distributions might not be sufficient to discover a new replace loop instance. Implement better.
                         if address not in _current_trace_replaced_variable_proposal_distributions:
@@ -272,7 +272,7 @@ def sample(distribution, control=True, returned=False, replace=False, name=None,
                             log_prob = distribution.log_prob(value, sum=True)
                             reused = False
 
-        variable = Variable(distribution=distribution, value=value, address_base=address_base, address=address, instance=instance, log_prob=log_prob, log_importance_weight=log_importance_weight, control=control, replace=replace, name=name, observed=observed, reused=reused, returned=returned)
+        variable = Variable(distribution=distribution, value=value, address_base=address_base, address=address, instance=instance, log_prob=log_prob, log_importance_weight=log_importance_weight, control=control, replace=replace, name=name, observed=observed, reused=reused, time_stamp=time.time())
         if update_previous_variable:
             _current_trace_previous_variable = variable
 

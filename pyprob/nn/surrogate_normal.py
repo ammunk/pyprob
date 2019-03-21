@@ -29,7 +29,6 @@ class SurrogateNormal(nn.Module):
         self.dist_type = Normal(loc=0,scale=1)
 
     def forward(self, x):
-        batch_size = x.size(0)
         x = self._ff(x)
         self.means = x[:, :self._output_dim].view(self._output_shape)
         self.stddevs = torch.exp(x[:, self._output_dim:]).view(self._output_shape)

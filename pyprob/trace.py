@@ -4,7 +4,7 @@ from . import util
 
 
 class Variable():
-    def __init__(self, distribution=None, value=None, address_base=None, address=None, instance=None, log_prob=None, log_importance_weight=None, control=False, replace=False, name=None, observed=False, reused=False, tagged=False, returned=False):
+    def __init__(self, distribution=None, value=None, address_base=None, address=None, instance=None, log_prob=None, log_importance_weight=None, control=False, replace=False, name=None, observed=False, reused=False, tagged=False, time_stamp=None):
         self.distribution = distribution
         if value is None:
             self.value = None
@@ -28,18 +28,18 @@ class Variable():
         self.observed = observed
         self.reused = reused
         self.tagged = tagged
-        self.returned = returned
+        self.time_stamp = time_stamp
 
     def __repr__(self):
-        return 'Variable(name:{}, control:{}, replace:{}, observable:{}, observed:{}, tagged:{}, returned:{}, address:{}, distribution:{}, value:{}: log_prob:{})'.format(
+        return 'Variable(name:{}, control:{}, replace:{}, observable:{}, observed:{}, tagged:{}, address:{}, time_stamp:{} distribution:{}, value:{}: log_prob:{})'.format(
             self.name,
             self.control,
             self.replace,
             self.observable,
             self.observed,
             self.tagged,
-            self.returned,
             self.address,
+            self.time_stamp,
             str(self.distribution),
             str(self.value),
             str(self.log_prob))

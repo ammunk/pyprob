@@ -18,8 +18,8 @@ class SurrogateAddressTransition(nn.Module):
             self._addresses = [next_address]
             self._address_to_class = {next_address: torch.Tensor([0])}
         else:
-            self._addresses = ["end"]
-            self._address_to_class = {"end": torch.Tensor([0])}
+            self._addresses = ["__end"]
+            self._address_to_class = {"__end": torch.Tensor([0])}
         # one class placeholder
         self._ff = EmbeddingFeedForward(input_shape=input_shape,
                                         output_shape=self._output_shape,
