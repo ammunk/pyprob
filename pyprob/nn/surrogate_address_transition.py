@@ -73,6 +73,6 @@ class AddressCategorical(Categorical):
     def sample(self):
         c = super().sample()
         if c == self._n_classes:
-            return "unknown"
+            return "__unknown"
         else:
             return self._transform_to_address(c)

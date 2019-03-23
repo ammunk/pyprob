@@ -61,7 +61,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                 name = variable.name
 
                 if address not in self._address_base or address not in self._address_to_name:
-                    self._address_base[address] = "__".join(address.split("__")[:-1])
+                    self._address_base[address] = "__".join(address.split("__")[:-2])
                     self._address_to_name[address] = name
 
 
@@ -254,10 +254,12 @@ class SurrogateNetworkLSTM(InferenceNetwork):
 
     def get_surrogate_forward(self, original_forward=lambda x: x):
         self._original_forward = original_forward
-        return self._surrogate_forward
+        return self.forward
 
-    def _surrogate_forward(self, *args, **kwargs):
+    def forward(self, *args, **kwargs):
         """
+        !! NOT TO BE USED AS A PyTorch FORWARD METHOD !!
+
         Rewrite the forward function otherwise specified by the user.
 
         This forward function uses the surrogate model as joint distribution
@@ -290,7 +292,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
             a_dist = address_dist(address_transition_input)
             address = a_dist.sample()
 
-            if address == "unknown":
+            if address == "__unknown":
                 print("Warning: sampled unknown address")
                 # if an address is unknown default to the simulator
                 # by resetting the _current_trace
