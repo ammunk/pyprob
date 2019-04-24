@@ -19,19 +19,16 @@ class SurrogateNormal(nn.Module):
         self._total_train_iterations = 0
 
         # address transform
-        self._transform_mean = Compose([Lambda(lambda dists: [d.mean for d in dists]),
-                                        torch.Tensor,
-                                        ])
-        self._transform_stddev = Compose([Lambda(lambda dists: [d.stddev for d in dists]),
-                                          torch.Tensor,
-                                         ])
+        self._transform_mean = lambda dists: torch.stack([d.mean for d in dists])
+        self._transform_stddev = lambda dists: torch.stack([d.stddev for d in dists])
 
         self.dist_type = Normal(loc=0,scale=1)
 
     def forward(self, x):
+        batch_size = x.size(0)
         x = self._ff(x)
-        self.means = x[:, :self._output_dim].view(self._output_shape)
-        self.stddevs = torch.exp(x[:, self._output_dim:]).view(self._output_shape)
+        self.means = x[:, :self._output_dim].view(batch_size, self._output_shape)
+        self.stddevs = torch.exp(x[:, self._output_dim:]).view(batch_size, self._output_shape)
 
         # if we only have one dimensional parameters, squeeze to make them scalars
         if self.means.shape == torch.Size([1]):

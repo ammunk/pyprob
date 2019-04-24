@@ -19,6 +19,7 @@ class Model():
         self.name = name
         self._inference_network = None
         self._surrogate_network = None
+        self._surrogate_forward = None
         self._original_forward = self.forward
         if address_dict_file_name is None:
             self._address_dictionary = None
@@ -74,7 +75,7 @@ class Model():
         if surrogate and self._surrogate_network:
             self.forward = self._surrogate_forward
         elif surrogate and not self._surrogate_network:
-            raise NotImplementedError("Surrogate model not trained")
+            raise RuntimeError("Surrogate model not trained")
         else:
             self.forward = self._original_forward
 
@@ -152,7 +153,7 @@ class Model():
         if surrogate and self._surrogate_forward:
             self.forward = self._surrogate_forward
         elif surrogate and not self._surrogate_forward:
-            raise NotImplementedError("Surrogate model not trained")
+            raise RuntimeError("Surrogate model not trained")
         else:
             self.forward = self._original_forward
 
@@ -162,7 +163,7 @@ class Model():
         self._inference_network = None
 
     def reset_surrogate_network(self):
-        self._forward = self._original_forward
+        self.forward = self._original_forward
         self._surrogate_network = None
 
     def learn_inference_network(self, num_traces, num_traces_end=1e9, inference_network=InferenceNetwork.FEEDFORWARD, prior_inflation=PriorInflation.DISABLED, dataset_dir=None, dataset_valid_dir=None, observe_embeddings={}, batch_size=64, valid_size=None, valid_every=None, optimizer_type=Optimizer.ADAM, learning_rate_init=0.001, learning_rate_end=1e-6, learning_rate_scheduler_type=LearningRateScheduler.NONE, momentum=0.9, weight_decay=0., save_file_name_prefix=None, save_every_sec=600, pre_generate_layers=True, distributed_backend=None, distributed_params_sync_every_iter=10000, distributed_num_buckets=10, dataloader_offline_num_workers=0, stop_with_bad_loss=True, log_file_name=None, surrogate=False):
@@ -170,7 +171,7 @@ class Model():
         if surrogate and self._surrogate_forward:
             self.forward = self._surrogate_forward
         elif surrogate and not self._surrogate_forward:
-            raise NotImplementedError("Surrogate model not trained")
+            raise RuntimeError("Surrogate model not trained")
         else:
             self.forward = self._original_forward
 
@@ -266,7 +267,13 @@ class Model():
         self._original_forward = self.forward
         self._surrogate_forward = self._surrogate_network.get_surrogate_forward(self._original_forward) 
         self.forward = self._surrogate_forward
-        print('Finished training surrogate model. Any further analysis is made using this surrogate model!')
+        print('Finished training surrogate model.')
+
+    def get_surrogate_network(self):
+        if self._surrogate_network:
+            return self._surrogate_network
+        else:
+            raise RuntimeError("Surrogate model not trained")
 
     def save_inference_network(self, file_name):
         if self._inference_network is None:
