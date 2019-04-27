@@ -18,11 +18,13 @@ class SurrogateNormal(nn.Module):
                                         activation=torch.relu, activation_last=None, batch_norm=batch_norm)
         self._total_train_iterations = 0
 
-        # address transform
-        self._transform_mean = lambda dists: torch.stack([d.mean for d in dists])
-        self._transform_stddev = lambda dists: torch.stack([d.stddev for d in dists])
-
         self.dist_type = Normal(loc=0, scale=1)
+
+    def _transform_mean(self, dists):
+        return torch.stack([d.mean for d in dists])
+
+    def _transform_stddev(self, dists):
+        return  torch.stack([d.stddev for d in dists])
 
     def forward(self, x):
         batch_size = x.size(0)

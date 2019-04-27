@@ -16,10 +16,10 @@ class SurrogateCategorical(nn.Module):
                                         activation=torch.relu, activation_last=None, batch_norm=batch_norm)
         self._total_train_iterations = 0
 
-        # address transform
-        self._transform_probs = lambda dists: torch.stack([d.probs for d in dists])
-
         self.dist_type = Categorical(probs=torch.Tensor([1]))
+
+    def _transform_probs(self, dists):
+        return torch.stack([d.probs for d in dists])
 
     def forward(self, x):
         batch_size = x.size(0)

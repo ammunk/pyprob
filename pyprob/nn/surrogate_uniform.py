@@ -18,11 +18,13 @@ class SurrogateUniform(nn.Module):
                                         activation=torch.relu, activation_last=None, batch_norm=batch_norm)
         self._total_train_iterations = 0
 
-        # address transform
-        self._transform_low = lambda dists: torch.stack([d.low for d in dists])
-        self._transform_high = lambda dists: torch.stack([d.high for d in dists])
-
         self.dist_type = Uniform(low=0,high=1)
+
+    def _transform_low(self, dists):
+        return torch.stack([d.low for d in dists])
+
+    def _transform_low(self, dists):
+        return torch.stack([d.high for d in dists])
 
     def forward(self, x):
         batch_size = x.size(0)

@@ -1,3 +1,10 @@
+import os
+import shutil
+import uuid
+import tempfile
+import tarfile
+from threading import Thread
+import copy
 import torch
 import torch.nn as nn
 from termcolor import colored
@@ -6,9 +13,11 @@ from . import EmbeddingFeedForward, InferenceNetwork, SurrogateAddressTransition
 from .. import util, state
 from ..distributions import Normal, Uniform, Categorical, Poisson
 from ..trace import Variable, Trace
+from .. import __version__
 
 
 class SurrogateNetworkLSTM(InferenceNetwork):
+
     def __init__(self, lstm_dim=512, lstm_depth=1, sample_embedding_dim=4,
                  address_embedding_dim=64, distribution_type_embedding_dim=8,
                  batch_norm=True, *args, **kwargs):
@@ -151,7 +160,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                 prev_address_embedding = self._layers_address_embedding[prev_address]
                 prev_distribution_type_embedding = self._layers_distribution_type_embedding[prev_distribution.name]
             else:
-                print('Warning: address of previous variable unknown by inference network: {}'.format(prev_address))
+                print('Warning: address of previous variable unknown by surrogate network: {}'.format(prev_address))
                 success = False
 
         current_address = variable.address
@@ -160,7 +169,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
             current_address_embedding = self._layers_address_embedding[current_address]
             current_distribution_type_embedding = self._layers_distribution_type_embedding[current_distribution.name]
         else:
-            print('Warning: address of current variable unknown by inference network: {}'.format(current_address))
+            print('Warning: address of current variable unknown by surrogate network: {}'.format(current_address))
             success = False
 
         if success:
@@ -193,7 +202,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                 current_address = current_variable.address
 
                 if current_address not in self._layers_address_embedding and current_address not in self._layers_surrogate_distributions:
-                    print(colored('Address unknown by inference network: {}'.format(current_address), 'red', attrs=['bold']))
+                    print(colored('Address unknown by surrogate network: {}'.format(current_address), 'red', attrs=['bold']))
                     return False, 0
                 current_distribution = current_variable.distribution
                 current_address_embedding = self._layers_address_embedding[current_address]
@@ -207,7 +216,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                     prev_variable = example_trace.variables_controlled[time_step - 1]
                     prev_address = prev_variable.address
                     if prev_address not in self._layers_address_embedding:
-                        print(colored('Address unknown by inference network: {}'.format(prev_address), 'red', attrs=['bold']))
+                        print(colored('Address unknown by surrogate network: {}'.format(prev_address), 'red', attrs=['bold']))
                         return False, 0
                     prev_distribution = prev_variable.distribution
                     smp = util.to_tensor(torch.stack([trace.variables_controlled[time_step - 1].value.float() for trace in sub_batch]))
@@ -324,3 +333,103 @@ class SurrogateNetworkLSTM(InferenceNetwork):
     def _trace_hashing(self, trace):
         trace_hash = ''.join([variable.address for variable in trace.variables])
         return trace_hash
+
+    def _save(self, file_name):
+        self._modified = util.get_time_str()
+        self._updates += 1
+
+        data = {}
+        data['pyprob_version'] = __version__
+        data['torch_version'] = torch.__version__
+        # The following is due to a temporary hack related with https://github.com/pytorch/pytorch/issues/9981 and can be deprecated by using dill as pickler with torch > 0.4.1
+        data['surrogate_network'] = copy.copy(self)
+        data['surrogate_network']._model = None
+        data['surrogate_network']._optimizer = None
+        if self._optimizer is None:
+            data['surrogate_network']._optimizer_state = None
+        else:
+            data['surrogate_network']._optimizer_state = self._optimizer.state_dict()
+        data['surrogate_network']._learning_rate_scheduler = None
+        if self._learning_rate_scheduler is None:
+            data['surrogate_network']._learning_rate_scheduler_state = None
+        else:
+            data['surrogate_network']._learning_rate_scheduler_state = self._learning_rate_scheduler.state_dict()
+
+        def thread_save():
+            tmp_dir = tempfile.mkdtemp(suffix=str(uuid.uuid4()))
+            tmp_file_name = os.path.join(tmp_dir, 'pyprob_surrogate_network')
+            torch.save(data, tmp_file_name)
+            tar = tarfile.open(file_name, 'w:gz', compresslevel=2)
+            tar.add(tmp_file_name, arcname='pyprob_surrogate_network')
+            tar.close()
+            shutil.rmtree(tmp_dir)
+        t = Thread(target=thread_save)
+        t.start()
+        t.join()
+
+    @staticmethod
+    def _load(file_name):
+        try:
+            tar = tarfile.open(file_name, 'r:gz')
+            tmp_dir = tempfile.mkdtemp(suffix=str(uuid.uuid4()))
+            tmp_file = os.path.join(tmp_dir, 'pyprob_surrogate_network')
+            tar.extract('pyprob_surrogate_network', tmp_dir)
+            tar.close()
+            if util._cuda_enabled:
+                data = torch.load(tmp_file)
+            else:
+                data = torch.load(tmp_file, map_location=lambda storage, loc: storage)
+            shutil.rmtree(tmp_dir)
+        except Exception as e:
+            print(e)
+            raise RuntimeError('Cannot load surrogate network.')
+
+        if data['pyprob_version'] != __version__:
+            print(colored('Warning: different pyprob versions (loaded network: {}, current system: {})'.format(data['pyprob_version'], __version__), 'red', attrs=['bold']))
+        if data['torch_version'] != torch.__version__:
+            print(colored('Warning: different PyTorch versions (loaded network: {}, current system: {})'.format(data['torch_version'], torch.__version__), 'red', attrs=['bold']))
+
+        ret = data['surrogate_network']
+        if util._cuda_enabled:
+            if ret._on_cuda:
+                if ret._device != util._device:
+                    print(colored('Warning: loading CUDA (device {}) network to CUDA (device {})'.format(ret._device, util._device), 'red', attrs=['bold']))
+            else:
+                print(colored('Warning: loading CPU network to CUDA (device {})'.format(util._device), 'red', attrs=['bold']))
+        else:
+            if ret._on_cuda:
+                print(colored('Warning: loading CUDA (device {}) network to CPU'.format(ret._device), 'red', attrs=['bold']))
+        ret.to(device=util._device)
+
+        # For compatibility loading NNs saved before 0.13.2.dev2
+        if not hasattr(ret, '_distributed_train_loss'):
+            ret._distributed_train_loss = util.to_tensor(0.)
+        if not hasattr(ret, '_distributed_valid_loss'):
+            ret._distributed_valid_loss = util.to_tensor(0.)
+        if not hasattr(ret, '_distributed_history_train_loss'):
+            ret._distributed_history_train_loss = []
+        if not hasattr(ret, '_distributed_history_train_loss_trace'):
+            ret._distributed_history_train_loss_trace = []
+        if not hasattr(ret, '_distributed_history_valid_loss'):
+            ret._distributed_history_valid_loss = []
+        if not hasattr(ret, '_distributed_history_valid_loss_trace'):
+            ret._distributed_history_valid_loss_trace = []
+        # For compatibility loading NNs saved before 0.13.2.dev5
+        if not hasattr(ret, '_total_train_traces_end'):
+            ret._total_train_traces_end = None
+        # For compatibility loading NNs saved before 0.13.2.dev6
+        if not hasattr(ret, '_loss_init'):
+            ret._loss_init = None
+        if not hasattr(ret, '_learning_rate_init'):
+            ret._learning_rate_init = 0
+        if not hasattr(ret, '_learning_rate_end'):
+            ret._learning_rate_end = 0
+        if not hasattr(ret, '_weight_decay'):
+            ret._weight_decay = 0
+        if not hasattr(ret, '_learning_rate_scheduler_type'):
+            ret._learning_rate_scheduler_type = None
+
+        ret._create_optimizer(ret._optimizer_state)
+        ret._create_lr_scheduler(ret._learning_rate_scheduler_state)
+        return ret
+

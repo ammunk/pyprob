@@ -52,7 +52,6 @@ class SurrogateAddressTransition(nn.Module):
         self._softmax = nn.Softmax(dim=1)
 
         self._total_train_iterations = 0
-        self._update_transforms()
 
     def forward(self, x):
         if self._first_address:
@@ -97,13 +96,11 @@ class SurrogateAddressTransition(nn.Module):
         loss = -self._categorical.log_prob(classes)
         return loss
 
-    def _update_transforms(self):
-        # address transform
-        self._transform_to_class = Compose([Lambda(lambda next_addresses: [self._address_to_class[next_address]
-                                                                           for next_address in next_addresses]),
-                                            torch.Tensor,])
-        self._transform_to_address = Lambda(lambda address_class: self._addresses[address_class])
+    def _transform_to_class(self, next_addresses):
+        return torch.Tensor([self._address_to_class[next_address] for next_address in next_addresses])
 
+    def _transform_to_address(self, address_class):
+        return self._addresses[address_class]
 
 class AddressCategorical(Categorical):
     def __init__(self, probs=None, n_classes=0, transform=None):
