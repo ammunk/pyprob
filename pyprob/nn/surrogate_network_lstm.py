@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from termcolor import colored
 
-from . import EmbeddingFeedForward, InferenceNetwork, SurrogateAddressTransition, SurrogateNormal
+from . import EmbeddingFeedForward, InferenceNetwork, SurrogateAddressTransition, SurrogateNormal, SurrogateCategorical, SurrogateUniform
 from .. import util, state
 from ..distributions import Normal, Uniform, Categorical, Poisson
 from ..trace import Variable, Trace
@@ -11,7 +11,7 @@ from ..trace import Variable, Trace
 class SurrogateNetworkLSTM(InferenceNetwork):
     def __init__(self, lstm_dim=512, lstm_depth=1, sample_embedding_dim=4,
                  address_embedding_dim=64, distribution_type_embedding_dim=8,
-                 *args, **kwargs):
+                 batch_norm=True, *args, **kwargs):
         super().__init__(network_type='SurrogateNetworkLSTM', *args, **kwargs)
         self._layers_sample_embedding = nn.ModuleDict()
         self._layers_address_embedding = nn.ParameterDict()
@@ -24,6 +24,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
         self._sample_embedding_dim = sample_embedding_dim
         self._address_embedding_dim = address_embedding_dim
         self._distribution_type_embedding_dim = distribution_type_embedding_dim
+        self._batch_norm = batch_norm
 
         # Surrogate attributes
         self._layers_address_transitions = nn.ModuleDict()
@@ -75,25 +76,34 @@ class SurrogateNetworkLSTM(InferenceNetwork):
 
                 if old_address not in self._layers_address_transitions:
                     if not old_address == "__init":
-                        self._layers_address_transitions[old_address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim, address)
+                        self._layers_address_transitions[old_address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim, address, batch_norm=self._batch_norm)
                     else:
-                        self._layers_address_transitions[old_address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim, address, first_address=True)
+                        self._layers_address_transitions[old_address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim, address, first_address=True, batch_norm=self._batch_norm)
                         layers_changed = True
                 else:
                     if address not in self._layers_address_transitions[old_address]._address_to_class:
+                        print("NEW ADDRESS", old_address, address)
                         self._layers_address_transitions[old_address].add_address_transition(address)
                         layers_changed = True
                 if address not in self._layers_surrogate_distributions:
                     variable_shape = variable.value.shape
                     if isinstance(distribution, Normal):
-                        surrogate_distribution = SurrogateNormal(self._lstm_dim, variable_shape)
+                        surrogate_distribution = SurrogateNormal(self._lstm_dim,
+                                                                 variable_shape, batch_norm=self._batch_norm)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
                     if isinstance(distribution, Uniform):
-                        surrogate_distribution = SurrogateUniform(self._lstm_dim, variable_shape)
+                        surrogate_distribution = SurrogateUniform(self._lstm_dim,
+                                                                  variable_shape,
+                                                                  batch_norm=self._batch_norm)
+                        sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
                     if isinstance(distribution, Poisson):
-                        surrogate_distribution = SurrogatePoisson(self._lstm_dim, variable_shape)
+                        surrogate_distribution = SurrogatePoisson(self._lstm_dim, variable_shape,
+                                                                  batch_norm=self._batch_norm)
+                        sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
                     if isinstance(distribution, Categorical):
-                        surrogate_distribution = SurrogateCategorical(self._lstm_dim, distribution.num_categories)
+                        surrogate_distribution = SurrogateCategorical(self._lstm_dim,
+                                                                      distribution.num_categories,
+                                                                      batch_norm=self._batch_norm)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape,
                                                                       self._sample_embedding_dim,
                                                                       input_is_one_hot_index=True,
@@ -110,8 +120,8 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                 old_address = address
             # add final address transition that ends the trace
             if address not in self._layers_address_transitions:
-                self._layers_address_transitions[address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim,
-                                                                                       None, last_address=True)
+                self._layers_address_transitions[address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim, None,
+                                           last_address=True, batch_norm=self._batch_norm)
 
         if layers_changed:
             num_params = sum(p.numel() for p in self.parameters())
@@ -277,10 +287,10 @@ class SurrogateNetworkLSTM(InferenceNetwork):
             address_dist = self._layers_address_transitions[address]
             lstm_output = lstm_output.squeeze(0) # squeeze the sequence dimension
             dist = surrogate_dist(lstm_output)
-            # TODO DEAL WITH REUSE???
+            # view as (1,-1) to make batch size equal 1
             value = state.sample(distribution=dist,
                                  address=self._address_base[address],
-                                 name=self._address_to_name[address])
+                                 name=self._address_to_name[address]).view(1,-1)
             if address in self._tagged_addresses:
                 state.tag(value, address=self._address_base[address])
             prev_variable = Variable(distribution=surrogate_dist.dist_type,

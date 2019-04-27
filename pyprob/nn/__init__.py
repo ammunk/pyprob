@@ -1,4 +1,5 @@
 from .dataset import Batch, OnlineDataset, OfflineDataset, TraceSampler, TraceBatchSampler, DistributedTraceBatchSampler
+from .identity import Identity
 from .embedding_feedforward import EmbeddingFeedForward
 from .embedding_cnn_2d_5c import EmbeddingCNN2D5C
 from .embedding_cnn_3d_5c import EmbeddingCNN3D5C
@@ -11,6 +12,8 @@ from .proposal_poisson_truncated_normal_mixture import ProposalPoissonTruncatedN
 from .proposal_categorical_categorical import ProposalCategoricalCategorical
 from .surrogate_address_transition import SurrogateAddressTransition
 from .surrogate_normal import SurrogateNormal
+from .surrogate_uniform import SurrogateUniform
+from .surrogate_categorical import SurrogateCategorical
 from .inference_network import InferenceNetwork
 from .inference_network_feedforward import InferenceNetworkFeedForward
 from .inference_network_lstm import InferenceNetworkLSTM

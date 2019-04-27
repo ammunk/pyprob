@@ -227,7 +227,7 @@ class Model():
                                           address_embedding_dim=64,
                                           sample_embedding_dim=4,
                                           distribution_type_embedding_dim=8,
-                                          log_file_name=None, ic=False):
+                                          log_file_name=None, ic=False, batch_norm=True):
 
         if dataset_dir is None:
             dataset = OnlineDataset(model=self, prior_inflation=prior_inflation)
@@ -239,10 +239,13 @@ class Model():
         else:
             dataset_valid = OfflineDataset(dataset_dir=dataset_valid_dir)
 
-        self._surrogate_network = SurrogateNetworkLSTM(model=self, lstm_dim=lstm_dim, lstm_depth=lstm_depth,
+        self._surrogate_network = SurrogateNetworkLSTM(model=self,
+                                                       lstm_dim=lstm_dim,
+                                                       lstm_depth=lstm_depth,
                                                        sample_embedding_dim=sample_embedding_dim,
                                                        address_embedding_dim=address_embedding_dim,
-                                                       distribution_type_embedding_dim=distribution_type_embedding_dim)
+                                                       distribution_type_embedding_dim=distribution_type_embedding_dim,
+                                                       batch_norm=batch_norm)
 
         self._surrogate_network.to(device=util._device)
         self._surrogate_network.optimize(num_traces=num_traces, dataset=dataset,
@@ -264,6 +267,7 @@ class Model():
                                          dataloader_offline_num_workers=dataloader_offline_num_workers,
                                          stop_with_bad_loss=stop_with_bad_loss,
                                          log_file_name=log_file_name)
+        self._surrogate_network.eval()
         self._original_forward = self.forward
         self._surrogate_forward = self._surrogate_network.get_surrogate_forward(self._original_forward) 
         self.forward = self._surrogate_forward

@@ -101,17 +101,17 @@ class OnlineDataset(Dataset):
             #     variable.value = None
             # else:
             #     variable.value = util.to_tensor(value)
-            del(variable.address_base)
+            #del(variable.address_base)
             del(variable.address)
-            del(variable.instance)
-            del(variable.log_prob)
-            del(variable.control)
-            del(variable.replace)
-            del(variable.name)
-            del(variable.observable)
-            del(variable.observed)
-            del(variable.reused)
-            del(variable.tagged)
+            #del(variable.instance)
+            #del(variable.log_prob)
+            #del(variable.control)
+            #del(variable.replace)
+            #del(variable.name)
+            #del(variable.observable)
+            #del(variable.observed)
+            #del(variable.reused)
+            #del(variable.tagged)
 
     def save_dataset(self, dataset_dir, num_traces, num_traces_per_file, *args, **kwargs):
         num_files = math.ceil(num_traces / num_traces_per_file)

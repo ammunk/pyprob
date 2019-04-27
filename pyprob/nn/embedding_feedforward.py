@@ -2,10 +2,11 @@ import torch
 import torch.nn as nn
 
 from .. import util
+from . import Identity
 
 
 class EmbeddingFeedForward(nn.Module):
-    def __init__(self, input_shape, output_shape, num_layers=3, activation=torch.relu, activation_last=torch.relu, input_is_one_hot_index=False, input_one_hot_dim=None):
+    def __init__(self, input_shape, output_shape, num_layers=3, activation=torch.relu, activation_last=torch.relu, input_is_one_hot_index=False, input_one_hot_dim=None, batch_norm=False):
         super().__init__()
         self._input_shape = util.to_size(input_shape)
         self._output_shape = util.to_size(output_shape)
@@ -21,11 +22,14 @@ class EmbeddingFeedForward(nn.Module):
             raise ValueError('Expecting num_layers >= 1')
         layers = []
         if num_layers == 1:
+            layers.append(nn.BatchNorm1d(self._input_dim) if batch_norm else Identity())
             layers.append(nn.Linear(self._input_dim, self._output_dim))
         else:
             hidden_dim = int((self._input_dim + self._output_dim)/2)
+            layers.append(nn.BatchNorm1d(self._input_dim) if batch_norm else Identity())
             layers.append(nn.Linear(self._input_dim, hidden_dim))
             for i in range(num_layers - 2):
+                layers.append(nn.BatchNorm1d(self.hidden_dim) if batch_norm else Identity)
                 layers.append(nn.Linear(hidden_dim, hidden_dim))
             layers.append(nn.Linear(hidden_dim, self._output_dim))
         self._activation = activation
@@ -37,6 +41,7 @@ class EmbeddingFeedForward(nn.Module):
             x = torch.stack([util.one_hot(self._input_one_hot_dim, int(v)) for v in x])
         else:
             x = x.view(-1, self._input_dim).float()
+
         for i in range(len(self._layers)):
             layer = self._layers[i]
             x = layer(x)
