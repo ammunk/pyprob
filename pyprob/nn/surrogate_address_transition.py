@@ -11,7 +11,7 @@ from ..distributions import Categorical
 class SurrogateAddressTransition(nn.Module):
 
     def __init__(self, input_shape, next_address=None, num_layers=2,
-                 first_address=False, last_address=False, hidden_size=None, batch_norm=True):
+                 first_address=False, last_address=False, hidden_size=None):
         super().__init__()
         self._n_classes = 1
         self._input_shape = util.to_size(input_shape)
@@ -35,17 +35,14 @@ class SurrogateAddressTransition(nn.Module):
             else:
                 hidden_size = int((self._input_dim + self._output_dim)/2)
             self._class_layer_input = hidden_size
-            layers = [("batch_norm0", nn.BatchNorm1d(self._input_dim) if batch_norm else Identity()),
-                      ("layer0", nn.Linear(self._input_dim, hidden_size)),
+            layers = [("layer0", nn.Linear(self._input_dim, hidden_size)),
                       ("relu0", nn.ReLU())]
             for n in range(num_layers - 2):
-                layers.appen((f"batch_norm{n+1}", nn.BatchNorm1d(hidden_size if batch_norm else Identity())))
                 layers.append((f"layer{n+1}", nn.Linear(hidden_size, hidden_size)))
                 layers.append((f"relu{n+1}", nn.ReLU()))
             self._ff["embedding"] = nn.Sequential(OrderedDict(layers))
         else:
             self._class_layer_input = self._input_dim
-            self._ff["embedding"] = nn.BatchNorm1d(self._input_dim) if batch_norm else Identity()
 
         self._ff["class_layer"] = nn.Linear(self._class_layer_input, self._output_dim)
 
@@ -85,11 +82,13 @@ class SurrogateAddressTransition(nn.Module):
         self._addresses.append(new_address)
         self._n_classes += 1
         self._output_shape = torch.Size([self._n_classes + 1])
-        self._ff["class_layer"] = nn.Linear(self._class_layer_input, self._output_dim)
+        def init_new_params(m):
+            # replace the weights and biasses (TODO: ADD A TINY BIT OF NOISE??)
+            if type(m) == nn.Linear:
+                m.weight = nn.Parameter(new_weights)
+                m.bias = nn.Parameter(new_bias)
 
-        # replace the weights and biasses (TODO: ADD A TINY BIT OF NOISE??)
-        self._ff["class_layer"].weight = nn.Parameter(new_weights).to(device=util._device)
-        self._ff["class_layer"].bias = nn.Parameter(new_bias).to(device=util._device)
+        self._ff["class_layer"] = nn.Linear(self._class_layer_input, self._output_dim).apply(init_new_params).to(device=util._device)
 
     def loss(self, next_addresses):
         classes = self._transform_to_class(next_addresses).to(device=util._device)

@@ -85,9 +85,9 @@ class SurrogateNetworkLSTM(InferenceNetwork):
 
                 if old_address not in self._layers_address_transitions:
                     if not old_address == "__init":
-                        self._layers_address_transitions[old_address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim, address, batch_norm=self._batch_norm)
+                        self._layers_address_transitions[old_address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim, address)
                     else:
-                        self._layers_address_transitions[old_address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim, address, first_address=True, batch_norm=self._batch_norm)
+                        self._layers_address_transitions[old_address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim, address, first_address=True)
                         layers_changed = True
                 else:
                     if address not in self._layers_address_transitions[old_address]._address_to_class:
@@ -97,22 +97,17 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                 if address not in self._layers_surrogate_distributions:
                     variable_shape = variable.value.shape
                     if isinstance(distribution, Normal):
-                        surrogate_distribution = SurrogateNormal(self._lstm_dim,
-                                                                 variable_shape, batch_norm=self._batch_norm)
+                        surrogate_distribution = SurrogateNormal(self._lstm_dim, variable_shape)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
                     if isinstance(distribution, Uniform):
-                        surrogate_distribution = SurrogateUniform(self._lstm_dim,
-                                                                  variable_shape,
-                                                                  batch_norm=self._batch_norm)
+                        surrogate_distribution = SurrogateUniform(self._lstm_dim, variable_shape)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
                     if isinstance(distribution, Poisson):
-                        surrogate_distribution = SurrogatePoisson(self._lstm_dim, variable_shape,
-                                                                  batch_norm=self._batch_norm)
+                        surrogate_distribution = SurrogatePoisson(self._lstm_dim, variable_shape)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
                     if isinstance(distribution, Categorical):
                         surrogate_distribution = SurrogateCategorical(self._lstm_dim,
-                                                                      distribution.num_categories,
-                                                                      batch_norm=self._batch_norm)
+                                                                      distribution.num_categories)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape,
                                                                       self._sample_embedding_dim,
                                                                       input_is_one_hot_index=True,
@@ -129,8 +124,9 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                 old_address = address
             # add final address transition that ends the trace
             if address not in self._layers_address_transitions:
-                self._layers_address_transitions[address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim, None,
-                                           last_address=True, batch_norm=self._batch_norm)
+                self._layers_address_transitions[address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim,
+                                                                                       None, last_address=True)
+
 
         if layers_changed:
             num_params = sum(p.numel() for p in self.parameters())
