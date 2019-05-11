@@ -39,6 +39,7 @@ class Empirical(Distribution):
         self._log_weights = []
         self._length = 0
         self._uniform_weights = False
+        self._type = None
         if concat_empiricals is not None or concat_empirical_file_names is not None:
             if concat_empiricals is not None:
                 if type(concat_empiricals) == list:
@@ -144,6 +145,8 @@ class Empirical(Distribution):
             if not self._closed:
                 self._shelf.close()
                 self._closed = True
+        else:
+            pass
 
     def copy(self, file_name=None):
         self._check_finalized()
