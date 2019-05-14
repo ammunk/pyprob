@@ -233,6 +233,26 @@ class OfflineDataset(ConcatDataset):
         print()
 
     @staticmethod
+    def prune(dataset_dir):
+        from pathlib import Path
+        files = sorted(glob(os.path.join(dataset_dir, 'pyprob_traces_*')))
+        if len(files) == 0:
+            raise RuntimeError('Cannot find any data set files at {}'.format(dataset_dir))
+        for file in files:
+            try:
+                dataset = OfflineDatasetFile(file)
+            except Exception as e:
+                print(e)
+                print(colored('Warning: dataset file potentially corrupt, deleting: {}'.format(file), 'red', attrs=['bold']))
+                file_to_delete = Path(dataset_dir) / file
+                os.remove(file_to_delete)
+
+            shelf = shelve.open(Path(dataset_dir) / file)
+            for i in range(shelf['__length']):
+                shelf[i] = OnlineDataset._prune_trace(shelf[i])
+            shelf.close()
+
+    @staticmethod
     def _trace_hash(trace):
         h = hash(''.join([variable.address for variable in trace.variables_controlled])) + sys.maxsize + 1
         return float('{}.{}'.format(trace.length_controlled, h))
