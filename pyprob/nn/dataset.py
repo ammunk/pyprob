@@ -95,6 +95,29 @@ class OnlineDataset(Dataset):
             del(variable.observed)
             del(variable.reused)
             del(variable.tagged)
+        for _, variable in trace.named_variables.items():
+            controlled = False
+            for v in trace.variables_controlled:
+                if variable is v:  # Needs to be implemented this way to compare object references instead of object hashes (which change as a result of potentially deleted fields)
+                    controlled = True
+                    break
+            if not controlled:
+                del(variable.distribution)
+                # if value is None:
+                #     variable.value = None
+                # else:
+                #     variable.value = util.to_tensor(value)
+                del(variable.address_base)
+                del(variable.address)
+                del(variable.instance)
+                del(variable.log_prob)
+                del(variable.control)
+                del(variable.replace)
+                del(variable.name)
+                del(variable.observable)
+                del(variable.observed)
+                del(variable.reused)
+                del(variable.tagged)
 
     def save_dataset(self, dataset_dir, num_traces, num_traces_per_file, *args, **kwargs):
         num_files = math.ceil(num_traces / num_traces_per_file)
@@ -106,7 +129,7 @@ class OnlineDataset(Dataset):
             shelf = shelve.open(file_name, flag='c')
             for j in range(num_traces_per_file):
                 trace = next(self._model._trace_generator(trace_mode=TraceMode.PRIOR, prior_inflation=self._prior_inflation, *args, **kwargs))
-                #self._prune_trace(trace)
+                self._prune_trace(trace)
                 shelf[str(j)] = trace
                 shelf['__length'] = j + 1
             shelf.close()
