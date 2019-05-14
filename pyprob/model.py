@@ -295,6 +295,7 @@ class Model():
 
     def load_surrogate_network(self, file_name):
         self._surrogate_network = SurrogateNetworkBase._load(file_name)
+        self._surrogate_forward = self._surrogate_network.get_surrogate_forward(self._original_forward)
         # The following is due to a temporary hack related with https://github.com/pytorch/pytorch/issues/9981 and can be deprecated by using dill as pickler with torch > 0.4.1
         self._surrogate_network.train()
         self._surrogate_network._model = self
