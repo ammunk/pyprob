@@ -241,9 +241,9 @@ class OfflineDataset(ConcatDataset):
         if not to_data_dir.exists():
             to_data_dir.mkdir()
 
-        files = sorted(glob(os.path.join(dataset_dir, 'pyprob_traces_*')))
+        files = sorted(glob(os.path.join(from_dataset_dir, 'pyprob_traces_*')))
         if len(files) == 0:
-            raise RuntimeError('Cannot find any data set files at {}'.format(dataset_dir))
+            raise RuntimeError('Cannot find any data set files at {}'.format(from_dataset_dir))
 
         num_traces_processed = 0
         for old_file in files:
@@ -252,7 +252,7 @@ class OfflineDataset(ConcatDataset):
             except Exception as e:
                 print(e)
                 print(colored('Warning: dataset file potentially corrupt, deleting: {}'.format(file), 'red', attrs=['bold']))
-                file_to_delete = Path(dataset_dir) / old_file
+                file_to_delete = Path(from_dataset_dir) / old_file
                 os.remove(file_to_delete)
 
             for i in range(shelf['__length']):
