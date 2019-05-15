@@ -233,7 +233,7 @@ class OfflineDataset(ConcatDataset):
         print()
 
     @staticmethod
-    def prune(from_dataset_dir, to_data_dir=None, traces_per_file=10000):
+    def prune(from_dataset_dir, to_data_dir=None, traces_per_file=1000):
         from pathlib import Path
         from_dir = Path(from_dataset_dir)
         if not to_data_dir:
@@ -248,17 +248,17 @@ class OfflineDataset(ConcatDataset):
         num_traces_processed = 0
         for old_file in files:
             try:
-                shelf = shelve.open(old_file)
+                shelf = shelve.open(old_file, flag='c')
             except Exception as e:
                 print(e)
                 print(colored('Warning: dataset file potentially corrupt, deleting: {}'.format(file), 'red', attrs=['bold']))
-                file_to_delete = Path(from_dataset_dir) / old_file
-                os.remove(file_to_delete)
+                os.remove(old_file)
 
             for i in range(shelf['__length']):
                 if num_traces_processed == 0:
+                    print(to_data_dir)
                     new_file = to_data_dir / ('pyprob_traces_' + str(uuid.uuid4()))
-                    shelf_new = shelve.open(new_file)
+                    shelf_new = shelve.open(new_file, flag='c')
 
                 trace = shelf[str(i)]
                 OnlineDataset._prune_trace(trace)
