@@ -253,6 +253,7 @@ class OfflineDataset(ConcatDataset):
                 print(e)
                 print(colored('Warning: dataset file potentially corrupt, deleting: {}'.format(file), 'red', attrs=['bold']))
                 os.remove(old_file)
+                continue
 
             for i in range(shelf['__length']):
                 if num_traces_processed == 0:
