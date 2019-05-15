@@ -12,9 +12,9 @@ class ProposalMVNMVNMixture(nn.Module):
         self._K = mixture_components
         input_shape = util.to_size(input_shape)
         self._D = util.prod(output_shape)
-        self.scale_tril_dim = D*(D+1)/2
+        self.scale_tril_dim = int(self._D*(self._D+1)/2)
         self._ff = EmbeddingFeedForward(input_shape=input_shape,
-                                        output_shape=torch.Size([(D+self.scale_tril_dim+1)*self._K]),
+                                        output_shape=torch.Size([(self._D+self.scale_tril_dim+1)*self._K]),
                                         num_layers=num_layers,
                                         activation=torch.relu,
                                         activation_last=None)

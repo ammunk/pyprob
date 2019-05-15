@@ -20,7 +20,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
 
     def __init__(self, lstm_dim=512, lstm_depth=1, sample_embedding_dim=4,
                  address_embedding_dim=64, distribution_type_embedding_dim=8,
-                 batch_norm=True, *args, **kwargs):
+                 batch_norm=False, *args, **kwargs):
         super().__init__(network_type='SurrogateNetworkLSTM', *args, **kwargs)
         self._layers_sample_embedding = nn.ModuleDict()
         self._layers_address_embedding = nn.ParameterDict()
@@ -97,7 +97,9 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                 if address not in self._layers_surrogate_distributions:
                     variable_shape = variable.value.shape
                     if isinstance(distribution, Normal):
-                        surrogate_distribution = SurrogateNormal(self._lstm_dim, variable_shape)
+                        mean_shaope, var_shape = distribution.mean_shape, distribution.var_shape
+                        surrogate_distribution = SurrogateNormal(self._lstm_dim,
+                                                                 mean_shape=mean_shape, var_shape=var_shape)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
                     if isinstance(distribution, Uniform):
                         surrogate_distribution = SurrogateUniform(self._lstm_dim, variable_shape)

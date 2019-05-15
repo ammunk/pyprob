@@ -8,13 +8,15 @@ from ..distributions import Distribution, Normal
 
 class SurrogateNormal(nn.Module):
     # only support 1 d distributions
-    def __init__(self, input_shape, output_shape, num_layers=2):
+    def __init__(self, input_shape, mean_shape, var_shape, num_layers=2):
         super().__init__()
         input_shape = util.to_size(input_shape)
-        self._output_dim = util.prod(output_shape)
-        self._output_shape = torch.Size([-1]) + output_shape
+        self._mean_output_dim = util.prod(mean_shape)
+        self._var_output_dim = util.prod(var_shape)
+        self._mean_output_shape = torch.Size([-1]) + mean_shape
+        self._var_output_shape = torch.Size([-1]) + var_shape
         self._ff = EmbeddingFeedForward(input_shape=input_shape,
-                                        output_shape=torch.Size([self._output_dim * 2]), num_layers=num_layers,
+                                        output_shape=torch.Size([self._mean_output_dim + self._var_output_dim]), num_layers=num_layers,
                                         activation=torch.relu, activation_last=None)
         self._total_train_iterations = 0
 
@@ -29,8 +31,8 @@ class SurrogateNormal(nn.Module):
     def forward(self, x):
         batch_size = x.size(0)
         x = self._ff(x)
-        self.means = x[:, :self._output_dim].view(self._output_shape)
-        self.stddevs = torch.exp(x[:, self._output_dim:]).view(self._output_shape)
+        self.means = x[:, :self._mean_output_dim].view(self._mean_output_shape)
+        self.stddevs = torch.exp(x[:, self._mean_output_dim:]).view(self._var_output_shape)
 
         # if we only have one dimensional parameters, squeeze to make them scalars
         if self.means.shape == torch.Size([1]):
