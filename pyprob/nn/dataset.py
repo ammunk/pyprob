@@ -4,6 +4,7 @@ import torch.distributed as dist
 import math
 import os
 import sys
+from tqdm import tqdm
 import shelve
 from glob import glob
 import numpy as np
@@ -246,30 +247,32 @@ class OfflineDataset(ConcatDataset):
             raise RuntimeError('Cannot find any data set files at {}'.format(from_dataset_dir))
 
         num_traces_processed = 0
-        for old_file in files:
-            try:
-                shelf = shelve.open(old_file, flag='c')
-            except Exception as e:
-                print(e)
-                print(colored('Warning: dataset file potentially corrupt, deleting: {}'.format(file), 'red', attrs=['bold']))
-                os.remove(old_file)
-                continue
+        n = len(files)
+        with tqdm(total=n) as pbar:
+            for old_file in files:
+                try:
+                    shelf = shelve.open(old_file, flag='c')
+                    shelf['__length']
+                except Exception as e:
+                    print(colored('Warning: dataset file potentially corrupt, deleting: {}'.format(old_file), 'red', attrs=['bold']))
+                    os.remove(old_file)
+                    continue
+                for i in range(shelf['__length']):
+                    if num_traces_processed == 0:
+                        new_file = to_data_dir / ('pyprob_traces_' + str(uuid.uuid4()))
+                        shelf_new = shelve.open(str(new_file), flag='c')
 
-            for i in range(shelf['__length']):
-                if num_traces_processed == 0:
-                    new_file = to_data_dir / ('pyprob_traces_' + str(uuid.uuid4()))
-                    shelf_new = shelve.open(str(new_file), flag='c')
+                    trace = shelf[str(i)]
+                    OnlineDataset._prune_trace(trace)
+                    shelf_new[str(num_traces_processed)] = trace
+                    shelf_new['__length'] = num_traces_processed + 1
+                    num_traces_processed += 1
+                    if num_traces_processed == traces_per_file:
+                        shelf_new.close()
+                        num_traces_processed =0
+                pbar.update(1)
 
-                trace = shelf[str(i)]
-                OnlineDataset._prune_trace(trace)
-                shelf_new[str(num_traces_processed)] = trace
-                shelf_new['__length'] = num_traces_processed + 1
-                num_traces_processed += 1
-                if num_traces_processed == traces_per_file:
-                    shelf_new.close()
-                    num_traces_processed =0
-
-            shelf.close()
+                shelf.close()
         if num_traces_processed != traces_per_file:
             shelf_new.close()
 
