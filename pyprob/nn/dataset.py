@@ -256,8 +256,8 @@ class OfflineDataset(ConcatDataset):
 
             for i in range(shelf['__length']):
                 if num_traces_processed == 0:
-                    print(to_data_dir)
                     new_file = to_data_dir / ('pyprob_traces_' + str(uuid.uuid4()))
+                    print(new_file)
                     shelf_new = shelve.open(new_file, flag='c')
 
                 trace = shelf[str(i)]
