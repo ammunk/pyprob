@@ -233,24 +233,45 @@ class OfflineDataset(ConcatDataset):
         print()
 
     @staticmethod
-    def prune(dataset_dir):
+    def prune(from_dataset_dir, to_data_dir=None, traces_per_file=10000):
         from pathlib import Path
+        from_dir = Path(from_dataset_dir)
+        if not to_data_dir:
+            to_data_dir = from_dir.parent / "dataset_aggregated"
+        if not to_data_dir.exists():
+            to_data_dir.mkdir()
+
         files = sorted(glob(os.path.join(dataset_dir, 'pyprob_traces_*')))
         if len(files) == 0:
             raise RuntimeError('Cannot find any data set files at {}'.format(dataset_dir))
-        for file in files:
+
+        num_traces_processed = 0
+        for old_file in files:
             try:
-                dataset = OfflineDatasetFile(file)
+                shelf = shelve.open(old_file)
             except Exception as e:
                 print(e)
                 print(colored('Warning: dataset file potentially corrupt, deleting: {}'.format(file), 'red', attrs=['bold']))
-                file_to_delete = Path(dataset_dir) / file
+                file_to_delete = Path(dataset_dir) / old_file
                 os.remove(file_to_delete)
 
-            shelf = shelve.open(Path(dataset_dir) / file)
             for i in range(shelf['__length']):
-                shelf[i] = OnlineDataset._prune_trace(shelf[i])
+                if num_traces_processed == 0:
+                    new_file = to_data_dir / ('pyprob_traces_' + str(uuid.uuid4()))
+                    shelf_new = shelve.open(new_file)
+
+                trace = shelf[str(i)]
+                OnlineDataset._prune_trace(trace)
+                shelf_new[str(num_traces_processed)] = trace
+                shelf_new['__length'] = num_traces_processed + 1
+                num_traces_processed += 1
+                if num_traces_processed == traces_per_file:
+                    shelf_new.close()
+                    num_traces_processed =0
+
             shelf.close()
+        if num_traces_processed != traces_per_file:
+            shelf_new.close()
 
     @staticmethod
     def _trace_hash(trace):
