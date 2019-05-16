@@ -6,7 +6,7 @@ from . import Identity
 
 
 class EmbeddingFeedForward(nn.Module):
-    def __init__(self, input_shape, output_shape, num_layers=3, activation=torch.relu, activation_last=torch.relu, input_is_one_hot_index=False, input_one_hot_dim=None):
+    def __init__(self, input_shape, output_shape, num_layers=3, hidden_dim=None, activation=torch.relu, activation_last=torch.relu, input_is_one_hot_index=False, input_one_hot_dim=None):
         super().__init__()
         self._input_shape = util.to_size(input_shape)
         self._output_shape = util.to_size(output_shape)
@@ -24,7 +24,8 @@ class EmbeddingFeedForward(nn.Module):
         if num_layers == 1:
             layers.append(nn.Linear(self._input_dim, self._output_dim))
         else:
-            hidden_dim = int((self._input_dim + self._output_dim)/2)
+            if not hidden_dim:
+                hidden_dim = int((self._input_dim + self._output_dim)/2)
             layers.append(nn.Linear(self._input_dim, hidden_dim))
             for i in range(num_layers - 2):
                 layers.append(nn.Linear(hidden_dim, hidden_dim))
