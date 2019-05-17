@@ -283,7 +283,7 @@ class OfflineDataset(ConcatDataset):
         from pathlib import Path
         from_dir = Path(from_dataset_dir)
         if not to_data_dir:
-            to_data_dir = from_dir.parent / "dataset_aggregated"
+            to_data_dir = from_dir.parent / "dataset_cleaned_control"
         if not to_data_dir.exists():
             to_data_dir.mkdir()
 
