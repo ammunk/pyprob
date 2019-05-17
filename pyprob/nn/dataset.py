@@ -234,7 +234,7 @@ class OfflineDataset(ConcatDataset):
         print()
 
     @staticmethod
-    def aggregate(from_dataset_dir, to_data_dir=None, traces_per_file=1000):
+    def aggregate(from_dataset_dir, to_data_dir=None, traces_per_file=1000, add_constants={}):
         from pathlib import Path
         from_dir = Path(from_dataset_dir)
         if not to_data_dir:
@@ -262,7 +262,15 @@ class OfflineDataset(ConcatDataset):
                         new_file = to_data_dir / ('pyprob_traces_' + str(uuid.uuid4()))
                         shelf_new = shelve.open(str(new_file), flag='c')
 
-                    trace = shelf[str(i)]
+                    trace = copy.deepcopy(shelf[str(i)])
+                    for v in trace.variables:
+                        if add_constants:
+                            if v.name in add_constants:
+                                v.constants = add_constants[v.name]
+                    for v in trace.variables_controlled:
+                        if add_constants:
+                            if v.name in add_constants:
+                                v.constants = add_constants[v.name]
                     shelf_new[str(num_traces_processed)] = trace
                     shelf_new['__length'] = num_traces_processed + 1
                     num_traces_processed += 1
