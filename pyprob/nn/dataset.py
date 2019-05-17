@@ -92,7 +92,7 @@ class OnlineDataset(Dataset):
             del(variable.log_prob)
             del(variable.control)
             del(variable.replace)
-            del(variable.name)
+            #del(variable.name)
             del(variable.observable)
             del(variable.observed)
             del(variable.reused)
@@ -131,7 +131,6 @@ class OnlineDataset(Dataset):
             shelf = shelve.open(file_name, flag='c')
             for j in range(num_traces_per_file):
                 trace = next(self._model._trace_generator(trace_mode=TraceMode.PRIOR, prior_inflation=self._prior_inflation, *args, **kwargs))
-                self._prune_trace(trace)
                 shelf[str(j)] = trace
                 shelf['__length'] = j + 1
             shelf.close()
@@ -235,7 +234,7 @@ class OfflineDataset(ConcatDataset):
         print()
 
     @staticmethod
-    def aggregate(from_dataset_dir, to_data_dir=None, traces_per_file=1000, prune=False):
+    def aggregate(from_dataset_dir, to_data_dir=None, traces_per_file=1000):
         from pathlib import Path
         from_dir = Path(from_dataset_dir)
         if not to_data_dir:
@@ -264,8 +263,6 @@ class OfflineDataset(ConcatDataset):
                         shelf_new = shelve.open(str(new_file), flag='c')
 
                     trace = shelf[str(i)]
-                    if prune:
-                        OnlineDataset._prune_trace(trace)
                     shelf_new[str(num_traces_processed)] = trace
                     shelf_new['__length'] = num_traces_processed + 1
                     num_traces_processed += 1
@@ -278,8 +275,64 @@ class OfflineDataset(ConcatDataset):
         if num_traces_processed != traces_per_file:
             shelf_new.close()
 
+    # @staticmethod
+    # def remove_from_control(from_dataset_dir, to_data_dir=None, names_to_remove=[], set_names_to_none=False):
+    #     from pathlib import Path
+    #     from_dir = Path(from_dataset_dir)
+    #     if not to_data_dir:
+    #         to_data_dir = from_dir.parent / "dataset_cleaned_control"
+    #     if not to_data_dir.exists():
+    #         to_data_dir.mkdir()
+
+    #     files = sorted(glob(os.path.join(from_dataset_dir, 'pyprob_traces_*')))
+    #     if len(files) == 0:
+    #         raise RuntimeError('Cannot find any data set files at {}'.format(from_dataset_dir))
+
+    #     num_traces_processed = 0
+    #     n = len(files)
+    #     with tqdm(total=n) as pbar:
+    #         for old_file in files:
+    #             try:
+    #                 shelf = shelve.open(old_file, flag='c')
+    #                 shelf['__length']
+    #                 new_file = to_data_dir / ('pyprob_traces_' + str(uuid.uuid4()))
+    #                 shelf_new = shelve.open(str(new_file), flag='c')
+    #             except Exception as e:
+    #                 print(colored('Warning: dataset file potentially corrupt, deleting: {}'.format(old_file), 'red', attrs=['bold']))
+    #                 os.remove(old_file)
+    #                 continue
+    #             for i in range(shelf['__length']):
+    #                 trace = shelf[str(i)]
+    #                 new_trace = copy.deepcopy(trace)
+    #                 if not hasattr(new_trace, 'variables'):
+    #                     new_trace.variables = copy.deepcopy(new_trace.variables_controlled)
+    #                 counter = 0
+    #                 for _ in range(len(new_trace.variables_controlled)):
+    #                     if set_names_to_none:
+    #                         new_trace.variables[counter].name = None
+
+    #                     if new_trace.variables_controlled[counter].name in names_to_remove:
+    #                         del new_trace.variables_controlled[counter]
+    #                     else:
+    #                         counter += 1
+    #                 for j in range(len(new_trace.variables)):
+    #                     if set_names_to_none:
+    #                         new_trace.variables[j].name = None
+
+    #                     if new_trace.variables[j].name in names_to_remove:
+    #                         new_trace.variables[j].control=False
+    #                 shelf_new[str(i)] = new_trace
+    #                 shelf_new['__length'] = i + 1
+    #                 break
+    #             break
+
+    #             shelf.close()
+    #             shelf_new.close()
+    #             pbar.update(1)
+
     @staticmethod
-    def remove_from_control(from_dataset_dir, to_data_dir=None, names_to_remove = []):
+    def add_constants(from_dataset_dir, to_data_dir=None, names_dict={}, look_for_uniform=False):
+        from ..distributions import Normal, Uniform, Categorical, Poisson
         from pathlib import Path
         from_dir = Path(from_dataset_dir)
         if not to_data_dir:
@@ -310,17 +363,30 @@ class OfflineDataset(ConcatDataset):
                     if not hasattr(new_trace, 'variables'):
                         new_trace.variables = copy.deepcopy(new_trace.variables_controlled)
                     counter = 0
-                    for _ in range(len(new_trace.variables_controlled)):
-                        if new_trace.variables_controlled[counter].name in names_to_remove:
-                            del new_trace.variables_controlled[counter]
-                        else:
-                            counter += 1
+                    for j in range(len(new_trace.variables_controlled)):
+                        v = new_trace.variables_controlled[j]
+                        if names_dict:
+                            if v.name in names_dict:
+                                v.constants = names_dict[v.name]
+                        elif look_for_uniform:
+                            if isinstance(v.distribution, Uniform):
+                                v.constants = {'low': v.distribution.low.item(),
+                                               'high': v.distribution.high.item()}
+
                     for j in range(len(new_trace.variables)):
-                        if new_trace.variables[j].name in names_to_remove:
-                            new_trace.variables[j].control=False
+                        v = new_trace.variables[j]
+                        if names_dict:
+                            if v.name in names_dict:
+                                v.constants = names_dict[v.name]
+                        elif look_for_uniform:
+                            if isinstance(v.distribution, Uniform):
+                                v.constants = {'low': v.distribution.low.item(),
+                                               'high': v.distribution.high.item()}
+
                     shelf_new[str(i)] = new_trace
                     shelf_new['__length'] = i + 1
-
+                    break
+                break
                 shelf.close()
                 shelf_new.close()
                 pbar.update(1)
