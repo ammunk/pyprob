@@ -40,6 +40,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
         self._layers_surrogate_distributions = nn.ModuleDict()
 
         self._tagged_addresses = []
+        self._control_addresses = {}
         self._address_base = {}
         self._address_to_name = {}
         self._trace_hashes = set([])
@@ -246,6 +247,10 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                 address = current_variable.address
                 if current_variable.tagged:
                     self._tagged_addresses.append(address)
+                if current_variable.control:
+                    self._control_addresses[address] = True
+                else:
+                    self._control_addresses[address] = False
                 proposal_input = lstm_output[time_step]
                 next_adresses, variable_dist = zip(*[(trace.variables[time_step+1].address
                                                         if time_step < trace_length - 1 else "__end",
@@ -297,7 +302,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
             # view as (1,-1) to make batch size equal 1
             value = state.sample(distribution=dist,
                                  address=self._address_base[address],
-                                 name=self._address_to_name[address]).view(1,-1)
+                                 name=self._address_to_name[address], control=self._control_addresses[address]).view(1,-1)
             if address in self._tagged_addresses:
                 state.tag(value, address=self._address_base[address])
             prev_variable = Variable(distribution=surrogate_dist.dist_type,

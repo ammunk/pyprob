@@ -4,6 +4,7 @@ import torch.distributed as dist
 import math
 import os
 import sys
+import copy
 from tqdm import tqdm
 import shelve
 from glob import glob
@@ -62,7 +63,7 @@ class OnlineDataset(Dataset):
 
     @staticmethod
     def _prune_trace(trace):
-        del(trace.variables)
+        #del(trace.variables)
         # trace.variables_controlled = []
         del(trace.variables_uncontrolled)
         del(trace.variables_replaced)
@@ -234,7 +235,7 @@ class OfflineDataset(ConcatDataset):
         print()
 
     @staticmethod
-    def prune(from_dataset_dir, to_data_dir=None, traces_per_file=1000):
+    def aggregate(from_dataset_dir, to_data_dir=None, traces_per_file=1000, prune=False):
         from pathlib import Path
         from_dir = Path(from_dataset_dir)
         if not to_data_dir:
@@ -263,7 +264,8 @@ class OfflineDataset(ConcatDataset):
                         shelf_new = shelve.open(str(new_file), flag='c')
 
                     trace = shelf[str(i)]
-                    OnlineDataset._prune_trace(trace)
+                    if prune:
+                        OnlineDataset._prune_trace(trace)
                     shelf_new[str(num_traces_processed)] = trace
                     shelf_new['__length'] = num_traces_processed + 1
                     num_traces_processed += 1
@@ -275,6 +277,47 @@ class OfflineDataset(ConcatDataset):
                 shelf.close()
         if num_traces_processed != traces_per_file:
             shelf_new.close()
+
+    @staticmethod
+    def remove_from_control(from_dataset_dir, to_data_dir=None, names_to_remove = []):
+        from pathlib import Path
+        from_dir = Path(from_dataset_dir)
+        if not to_data_dir:
+            to_data_dir = from_dir.parent / "dataset_aggregated"
+        if not to_data_dir.exists():
+            to_data_dir.mkdir()
+
+        files = sorted(glob(os.path.join(from_dataset_dir, 'pyprob_traces_*')))
+        if len(files) == 0:
+            raise RuntimeError('Cannot find any data set files at {}'.format(from_dataset_dir))
+
+        num_traces_processed = 0
+        n = len(files)
+        with tqdm(total=n) as pbar:
+            for old_file in files:
+                try:
+                    shelf = shelve.open(old_file, flag='c')
+                    shelf['__length']
+                    new_file = to_data_dir / ('pyprob_traces_' + str(uuid.uuid4()))
+                    shelf_new = shelve.open(str(new_file), flag='c')
+                except Exception as e:
+                    print(colored('Warning: dataset file potentially corrupt, deleting: {}'.format(old_file), 'red', attrs=['bold']))
+                    os.remove(old_file)
+                    continue
+                for i in range(shelf['__length']):
+                    trace = shelf[str(i)]
+                    new_trace = trace.deepcopy(trace)
+                    if not hasattr(new_trace, 'variables'):
+                        new_trace.variables = copy.deepcopy(new_trace.controlled_variables)
+                    for i in range(len(new_trace.controlled_variables)):
+                        if new_trace.controlled_variables[i].name in names_to_remove:
+                            del new_trace.controlled_variables[i]
+                    shelf_new[str(i)] = trace
+                    shelf_new['__length'] = i + 1
+
+                shelf.close()
+                shelf_new.close()
+                pbar.update(1)
 
     @staticmethod
     def _trace_hash(trace):
