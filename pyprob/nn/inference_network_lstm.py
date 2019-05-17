@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from termcolor import colored
 
-from . import InferenceNetwork, EmbeddingFeedForward, ProposalNormalNormalMixture, ProposalUniformTruncatedNormalMixture, ProposalCategoricalCategorical, ProposalPoissonTruncatedNormalMixture, ProposalMVNMVNMixture
+from . import InferenceNetwork, EmbeddingFeedForward, ProposalNormalNormalMixture, ProposalUniformTruncatedNormalMixture, ProposalCategoricalCategorical, ProposalPoissonTruncatedNormalMixture
 from .. import util
 from ..distributions import Normal, Uniform, Categorical, Poisson
 
@@ -34,6 +34,9 @@ class InferenceNetworkLSTM(InferenceNetwork):
         for sub_batch in batch.sub_batches:
             example_trace = sub_batch[0]
             for variable in example_trace.variables_controlled:
+                if variable.name in self._observe_embeddings:
+                    # do not create proposal layer for observed variables!
+                    continue
                 address = variable.address
                 distribution = variable.distribution
 
@@ -48,10 +51,7 @@ class InferenceNetworkLSTM(InferenceNetwork):
                 if address not in self._layers_proposal:
                     variable_shape = variable.value.shape
                     if isinstance(distribution, Normal):
-                        if distribution.mean.numel() == 1:
-                            proposal_layer = ProposalNormalNormalMixture(self._lstm_dim, variable_shape)
-                        else:
-                            proposal_layer = ProposalMVNMVNMixture(self._lstm_dim, variable_shape)
+                        proposal_layer = ProposalNormalNormalMixture(self._lstm_dim, variable_shape)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
                     elif isinstance(distribution, Uniform):
                         proposal_layer = ProposalUniformTruncatedNormalMixture(self._lstm_dim, variable_shape)
@@ -145,6 +145,9 @@ class InferenceNetworkLSTM(InferenceNetwork):
             for time_step in range(example_trace.length_controlled):
                 current_variable = example_trace.variables_controlled[time_step]
                 current_address = current_variable.address
+                if current_variable.name in self._observe_embeddings:
+                    # do not create proposal layer for observed variables!
+                    continue
                 if current_address not in self._layers_address_embedding:
                     print(colored('Address unknown by inference network: {}'.format(current_address), 'red', attrs=['bold']))
                     return False, 0
@@ -189,6 +192,9 @@ class InferenceNetworkLSTM(InferenceNetwork):
             for time_step in range(example_trace.length_controlled):
                 variable = example_trace.variables_controlled[time_step]
                 address = variable.address
+                if variable.name in self._observe_embeddings:
+                    # do not create proposal layer for observed variables!
+                    continue
                 proposal_input = lstm_output[time_step]
                 variables = [trace.variables_controlled[time_step] for trace in sub_batch]
                 values = torch.stack([v.value for v in variables])
