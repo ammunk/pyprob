@@ -306,12 +306,19 @@ class OfflineDataset(ConcatDataset):
                     continue
                 for i in range(shelf['__length']):
                     trace = shelf[str(i)]
-                    new_trace = trace.deepcopy(trace)
+                    new_trace = copy.deepcopy(trace)
                     if not hasattr(new_trace, 'variables'):
-                        new_trace.variables = copy.deepcopy(new_trace.controlled_variables)
-                    for i in range(len(new_trace.controlled_variables)):
-                        if new_trace.controlled_variables[i].name in names_to_remove:
-                            del new_trace.controlled_variables[i]
+                        new_trace.variables = copy.deepcopy(new_trace.variables_controlled)
+                    counter = 0
+                    for _ in range(len(new_trace.variables_controlled)):
+                        if new_trace.variables_controlled[counter].name in names_to_remove:
+                            del new_trace.variables_controlled[counter]
+                            # continue so that the counter is not increased
+                            continue
+                        counter += 1
+                    for i in range(len(new_trace.variables)):
+                        if new_trace.variables[i].name in names_to_remove:
+                            new_trace.variables[i].control=False
                     shelf_new[str(i)] = trace
                     shelf_new['__length'] = i + 1
 

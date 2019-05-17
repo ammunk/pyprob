@@ -212,13 +212,13 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                     prev_address_embedding = util.to_tensor(torch.zeros(self._address_embedding_dim))
                     prev_distribution_type_embedding = util.to_tensor(torch.zeros(self._distribution_type_embedding_dim))
                 else:
-                    prev_variable = example_trace.variables_controlled[time_step - 1]
+                    prev_variable = example_trace.variables[time_step - 1]
                     prev_address = prev_variable.address
                     if prev_address not in self._layers_address_embedding:
                         print(colored('Address unknown by surrogate network: {}'.format(prev_address), 'red', attrs=['bold']))
                         return False, 0
                     prev_distribution = prev_variable.distribution
-                    smp = util.to_tensor(torch.stack([trace.variables_controlled[time_step - 1].value.float() for trace in sub_batch]))
+                    smp = util.to_tensor(torch.stack([trace.variables[time_step - 1].value.float() for trace in sub_batch]))
                     prev_sample_embedding = self._layers_sample_embedding[prev_address](smp)
                     prev_address_embedding = self._layers_address_embedding[prev_address]
                     prev_distribution_type_embedding = self._layers_distribution_type_embedding[prev_distribution.name]
