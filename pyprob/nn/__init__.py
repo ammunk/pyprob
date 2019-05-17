@@ -12,6 +12,7 @@ from .proposal_poisson_truncated_normal_mixture import ProposalPoissonTruncatedN
 from .proposal_categorical_categorical import ProposalCategoricalCategorical
 from .surrogate_address_transition import SurrogateAddressTransition
 from .surrogate_normal import SurrogateNormal
+from .surrogate_normal_w_deconv import SurrogateNormalConvTranspose2d
 from .surrogate_uniform import SurrogateUniform
 from .surrogate_categorical import SurrogateCategorical
 from .inference_network import InferenceNetwork

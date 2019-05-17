@@ -23,7 +23,7 @@ class SurrogateUniform(nn.Module):
     def _transform_low(self, dists):
         return torch.stack([d.low for d in dists])
 
-    def _transform_low(self, dists):
+    def _transform_high(self, dists):
         return torch.stack([d.high for d in dists])
 
     def forward(self, x):

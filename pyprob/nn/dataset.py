@@ -313,13 +313,12 @@ class OfflineDataset(ConcatDataset):
                     for _ in range(len(new_trace.variables_controlled)):
                         if new_trace.variables_controlled[counter].name in names_to_remove:
                             del new_trace.variables_controlled[counter]
-                            # continue so that the counter is not increased
-                            continue
-                        counter += 1
-                    for i in range(len(new_trace.variables)):
-                        if new_trace.variables[i].name in names_to_remove:
-                            new_trace.variables[i].control=False
-                    shelf_new[str(i)] = trace
+                        else:
+                            counter += 1
+                    for j in range(len(new_trace.variables)):
+                        if new_trace.variables[j].name in names_to_remove:
+                            new_trace.variables[j].control=False
+                    shelf_new[str(i)] = new_trace
                     shelf_new['__length'] = i + 1
 
                 shelf.close()
@@ -328,8 +327,8 @@ class OfflineDataset(ConcatDataset):
 
     @staticmethod
     def _trace_hash(trace):
-        h = hash(''.join([variable.address for variable in trace.variables_controlled])) + sys.maxsize + 1
-        return float('{}.{}'.format(trace.length_controlled, h))
+        h = hash(''.join([variable.address for variable in trace.variables])) + sys.maxsize + 1
+        return float('{}.{}'.format(trace.length, h))
 
     def _compute_hashes(self):
         hashes = torch.zeros(len(self))

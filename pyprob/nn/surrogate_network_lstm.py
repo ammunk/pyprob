@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 from termcolor import colored
 
-from . import EmbeddingFeedForward, InferenceNetwork, SurrogateAddressTransition, SurrogateNormal, SurrogateCategorical, SurrogateUniform
+from . import EmbeddingFeedForward, InferenceNetwork, SurrogateAddressTransition, SurrogateNormal, SurrogateCategorical, SurrogateUniform, SurrogateNormalConvTranspose2d
 from .. import util, state
 from ..distributions import Normal, Uniform, Categorical, Poisson
 from ..trace import Variable, Trace
@@ -20,7 +20,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
 
     def __init__(self, lstm_dim=512, lstm_depth=1, sample_embedding_dim=4,
                  address_embedding_dim=64, distribution_type_embedding_dim=8,
-                 batch_norm=False, *args, **kwargs):
+                 batch_norm=False, variable_embeddings={}, deconv_list=[], *args, **kwargs):
         super().__init__(network_type='SurrogateNetworkLSTM', *args, **kwargs)
         self._layers_sample_embedding = nn.ModuleDict()
         self._layers_address_embedding = nn.ParameterDict()
@@ -34,6 +34,8 @@ class SurrogateNetworkLSTM(InferenceNetwork):
         self._address_embedding_dim = address_embedding_dim
         self._distribution_type_embedding_dim = distribution_type_embedding_dim
         self._batch_norm = batch_norm
+        self._deconv_list = deconv_list
+        self._variable_embeddings = variable_embeddings
 
         # Surrogate attributes
         self._layers_address_transitions = nn.ModuleDict()
@@ -97,18 +99,30 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                         layers_changed = True
                 if address not in self._layers_surrogate_distributions:
                     variable_shape = variable.value.shape
-                    if isinstance(distribution, Normal):
-                        mean_shape, var_shape = distribution.mean_shape, distribution.var_shape
-                        surrogate_distribution = SurrogateNormal(self._lstm_dim,
-                                                                 mean_shape=mean_shape, var_shape=var_shape)
+                    if variable.name in self._variable_embeddings:
+                        var_embedding = self._variable_embeddings[variable.name]
+                    else:
+                        var_embedding = {'num_layers': 2,
+                                        'hidden_dim': None}
+                    if variable.name in self._deconv_list:
+                        mean_shape, var_shape = distribution.mean.shape, torch.Size([1])
+                        surrogate_distribution = SurrogateNormalConvTranspose2d(self._lstm_dim,
+                                                                                mean_shape=mean_shape,
+                                                                                var_shape=var_shape,
+                                                                                **var_embedding)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
-                    if isinstance(distribution, Uniform):
+                    elif isinstance(distribution, Normal):
+                        mean_shape, var_shape = distribution.mean.shape, distribution.variance.shape
+                        surrogate_distribution = SurrogateNormal(self._lstm_dim,
+                                                                 mean_shape=mean_shape, var_shape=var_shape, **var_embedding)
+                        sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
+                    elif isinstance(distribution, Uniform):
                         surrogate_distribution = SurrogateUniform(self._lstm_dim, variable_shape)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
-                    if isinstance(distribution, Poisson):
+                    elif isinstance(distribution, Poisson):
                         surrogate_distribution = SurrogatePoisson(self._lstm_dim, variable_shape)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
-                    if isinstance(distribution, Categorical):
+                    elif isinstance(distribution, Categorical):
                         surrogate_distribution = SurrogateCategorical(self._lstm_dim,
                                                                       distribution.num_categories)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape,

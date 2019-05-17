@@ -8,7 +8,7 @@ from ..distributions import Distribution, Normal
 
 class SurrogateNormal(nn.Module):
     # only support 1 d distributions
-    def __init__(self, input_shape, mean_shape, var_shape, num_layers=2):
+    def __init__(self, input_shape, mean_shape, var_shape, num_layers=2, hidden_dim=None):
         super().__init__()
         input_shape = util.to_size(input_shape)
         self._mean_output_dim = util.prod(mean_shape)
@@ -16,8 +16,12 @@ class SurrogateNormal(nn.Module):
         self._mean_output_shape = torch.Size([-1]) + mean_shape
         self._var_output_shape = torch.Size([-1]) + var_shape
         self._ff = EmbeddingFeedForward(input_shape=input_shape,
-                                        output_shape=torch.Size([self._mean_output_dim + self._var_output_dim]), num_layers=num_layers,
-                                        activation=torch.relu, activation_last=None)
+                                        output_shape=torch.Size([self._mean_output_dim
+                                                                 + self._var_output_dim]),
+                                        num_layers=num_layers,
+                                        activation=torch.relu,
+                                        hidden_dim=hidden_dim,
+                                        activation_last=None)
         self._total_train_iterations = 0
 
         self.dist_type = Normal(loc=0, scale=1)

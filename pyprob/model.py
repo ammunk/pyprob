@@ -251,6 +251,7 @@ class Model():
                                           dataloader_offline_num_workers=0,
                                           stop_with_bad_loss=True,
                                           lstm_dim=512, lstm_depth=1,
+                                          deconv_list=[], variable_embeddings={},
                                           address_embedding_dim=64,
                                           sample_embedding_dim=4,
                                           distribution_type_embedding_dim=8,
@@ -273,7 +274,9 @@ class Model():
                                                            lstm_depth=lstm_depth,
                                                            sample_embedding_dim=sample_embedding_dim,
                                                            address_embedding_dim=address_embedding_dim,
-                                                           distribution_type_embedding_dim=distribution_type_embedding_dim)
+                                                           distribution_type_embedding_dim=distribution_type_embedding_dim,
+                                                           deconv_list=deconv_list,
+                                                           variable_embeddings=variable_embeddings)
         else:
             print('Continuing to train existing surrogate network...')
             print('Total number of parameters: {:,}'.format(self._surrogate_network._history_num_params[-1]))
