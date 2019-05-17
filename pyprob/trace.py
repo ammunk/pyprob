@@ -4,7 +4,7 @@ from . import util
 
 
 class Variable():
-    def __init__(self, distribution=None, value=None, address_base=None, address=None, instance=None, log_prob=None, log_importance_weight=None, control=False, replace=False, name=None, observed=False, reused=False, tagged=False, time_stamp=None):
+    def __init__(self, distribution=None, value=None, constants={}, address_base=None, address=None, instance=None, log_prob=None, log_importance_weight=None, control=False, replace=False, name=None, observed=False, reused=False, tagged=False, time_stamp=None):
         self.distribution = distribution
         if value is None:
             self.value = None

@@ -117,7 +117,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
                                                                  mean_shape=mean_shape, var_shape=var_shape, **var_embedding)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
                     elif isinstance(distribution, Uniform):
-                        surrogate_distribution = SurrogateUniform(self._lstm_dim, variable_shape)
+                        surrogate_distribution = SurrogateUniform(self._lstm_dim, variable_shape, variable.constants)
                         sample_embedding_layer = EmbeddingFeedForward(variable.value.shape, self._sample_embedding_dim, num_layers=1)
                     elif isinstance(distribution, Poisson):
                         surrogate_distribution = SurrogatePoisson(self._lstm_dim, variable_shape)
