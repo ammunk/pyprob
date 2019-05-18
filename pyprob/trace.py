@@ -29,11 +29,13 @@ class Variable():
         self.reused = reused
         self.tagged = tagged
         self.time_stamp = time_stamp
+        self.constants = constants
 
     def __repr__(self):
-        return 'Variable(name:{}, control:{}, replace:{}, observable:{}, observed:{}, tagged:{}, address:{}, time_stamp:{} distribution:{}, value:{}: log_prob:{})'.format(
+        return 'Variable(name:{}, control:{}, constants:{} replace:{}, observable:{}, observed:{}, tagged:{}, address:{}, time_stamp:{} distribution:{}, value:{}: log_prob:{})'.format(
             self.name,
             self.control,
+            self.constants,
             self.replace,
             self.observable,
             self.observed,

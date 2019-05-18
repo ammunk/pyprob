@@ -46,4 +46,5 @@ class SurrogateUniform(nn.Module):
         # p_normal = Uniform(simulator_lows, simulator_highs)
         # q_normal = Uniform(self.low, self.high)
 
-        return 0
+        batch_size = len(distributions)
+        return torch.zeros([batch_size,1])
