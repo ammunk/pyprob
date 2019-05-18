@@ -265,12 +265,18 @@ class OfflineDataset(ConcatDataset):
                     trace = copy.deepcopy(shelf[str(i)])
                     for v in trace.variables:
                         if add_constants:
-                            if v.name in add_constants:
-                                v.constants = add_constants[v.name]
+                            try:
+                                v.constants
+                            except AttributeError:
+                                if v.name in add_constants:
+                                    v.constants = add_constants[v.name]
                     for v in trace.variables_controlled:
                         if add_constants:
-                            if v.name in add_constants:
-                                v.constants = add_constants[v.name]
+                            try:
+                                v.constants
+                            except AttributeError:
+                                if v.name in add_constants:
+                                    v.constants = add_constants[v.name]
                     shelf_new[str(num_traces_processed)] = trace
                     shelf_new['__length'] = num_traces_processed + 1
                     num_traces_processed += 1
