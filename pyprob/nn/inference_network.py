@@ -124,7 +124,13 @@ class InferenceNetwork(nn.Module):
     def _embed_observe(self, traces=None):
         embedding = []
         for name, layer in self._layers_observe_embedding.items():
-            values = torch.stack([util.to_tensor(trace.named_variables[name].value) for trace in traces]).view(len(traces), -1)
+            tmp = []
+            for trace in traces:
+                value = util.to_tensor(trace.named_variables[name].value).squeeze()
+                # When using surrogate the shapes might be off by one dimension
+                # here we correct for that
+                tmp.append(value)
+            values = torch.stack(tmp).view(len(traces), -1)
             embedding.append(layer(values))
         embedding = torch.cat(embedding, dim=1)
         embedding = self._layers_observe_embedding_final(embedding)

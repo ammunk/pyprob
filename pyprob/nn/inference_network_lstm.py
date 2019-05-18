@@ -166,7 +166,9 @@ class InferenceNetworkLSTM(InferenceNetwork):
                         print(colored('Address unknown by inference network: {}'.format(prev_address), 'red', attrs=['bold']))
                         return False, 0
                     prev_distribution = prev_variable.distribution
-                    smp = util.to_tensor(torch.stack([trace.variables_controlled[time_step - 1].value.float() for trace in sub_batch]))
+                    # the squeeze is added to accomodate for surrogate and original sample
+                    # mixed traces
+                    smp = util.to_tensor(torch.stack([trace.variables_controlled[time_step - 1].value.squeeze().float() for trace in sub_batch]))
                     prev_sample_embedding = self._layers_sample_embedding[prev_address](smp)
                     prev_address_embedding = self._layers_address_embedding[prev_address]
                     prev_distribution_type_embedding = self._layers_distribution_type_embedding[prev_distribution.name]
@@ -197,7 +199,9 @@ class InferenceNetworkLSTM(InferenceNetwork):
                     continue
                 proposal_input = lstm_output[time_step]
                 variables = [trace.variables_controlled[time_step] for trace in sub_batch]
-                values = torch.stack([v.value for v in variables])
+                # the squeeze is added to accomodate for surrogate and original sample
+                # mixed traces
+                values = torch.stack([v.value.squeeze() for v in variables])
                 proposal_layer = self._layers_proposal[address]
                 proposal_layer._total_train_iterations += 1
                 proposal_distribution = proposal_layer.forward(proposal_input, variables)

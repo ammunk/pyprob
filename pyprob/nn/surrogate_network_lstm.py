@@ -314,9 +314,17 @@ class SurrogateNetworkLSTM(InferenceNetwork):
             lstm_output = lstm_output.squeeze(0) # squeeze the sequence dimension
             dist = surrogate_dist(lstm_output)
             # view as (1,-1) to make batch size equal 1
+
             value = state.sample(distribution=dist,
                                  address=self._address_base[address],
-                                 name=self._address_to_name[address], control=self._control_addresses[address]).view(1,-1)
+                                 name=self._address_to_name[address],
+                                 control=self._control_addresses[address])
+
+            if value.numel() == 1:
+                value=value.item()
+            else:
+                value = value.squeeze(0)
+
             if address in self._tagged_addresses:
                 state.tag(value, address=self._address_base[address])
             prev_variable = Variable(distribution=surrogate_dist.dist_type,

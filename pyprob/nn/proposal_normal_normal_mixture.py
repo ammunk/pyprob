@@ -33,8 +33,10 @@ class ProposalNormalNormalMixture(nn.Module):
         coeffs = x[:, 2*self._K*self._D:].view(batch_size, -1)
         stddevs = torch.exp(stddevs)
         coeffs = torch.softmax(coeffs, dim=1)
-        prior_means = torch.stack([v.distribution.mean for v in prior_variables]).view(batch_size, -1)
-        prior_stddevs = torch.stack([v.distribution.stddev for v in prior_variables]).view(batch_size, -1)
+        # the squeeze is when a trace is a mix of surrogate and original samples
+        # the dimensions might be slightly off
+        prior_means = torch.stack([v.distribution.mean.squeeze() for v in prior_variables]).view(batch_size, -1)
+        prior_stddevs = torch.stack([v.distribution.stddev.squeeze() for v in prior_variables]).view(batch_size, -1)
         prior_means = prior_means.repeat(1, self._K)
         prior_stddevs = prior_stddevs.repeat(1, self._K)
         means = prior_means + (means * prior_stddevs)
