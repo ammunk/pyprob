@@ -37,8 +37,8 @@ class ProposalNormalNormalMixture(nn.Module):
         # the dimensions might be slightly off
         prior_means = torch.stack([v.distribution.mean.squeeze() for v in prior_variables]).view(batch_size, -1)
         prior_stddevs = torch.stack([v.distribution.stddev.squeeze() for v in prior_variables]).view(batch_size, -1)
-        prior_means = prior_means.repeat(1, self._K)
-        prior_stddevs = prior_stddevs.repeat(1, self._K)
+        prior_means = prior_means.repeat(1, self._K).to(device=util._device)
+        prior_stddevs = prior_stddevs.repeat(1, self._K).to(device=util._device)
         means = prior_means + (means * prior_stddevs)
         stddevs = stddevs * prior_stddevs
         means = means.view(batch_size, -1)
