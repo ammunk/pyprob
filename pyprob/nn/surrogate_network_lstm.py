@@ -142,7 +142,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
             # add final address transition that ends the trace
             if address not in self._layers_address_transitions:
                 self._layers_address_transitions[address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim,
-                                                                                       None, last_address=True)
+                                                                                       None, last_address=True).to(device=util._device)
 
 
         if layers_changed:
