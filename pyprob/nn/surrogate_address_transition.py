@@ -57,6 +57,7 @@ class SurrogateAddressTransition(nn.Module):
             self._categorical = Categorical(probs=[1])
             self._categorical = AddressCategorical(probs=[1], n_classes=self._n_classes, transform=self._transform_to_address)
         else:
+            print(x)
             batch_size = x.size(0)
             x = self._ff["embedding"](x)
             x = self._ff["class_layer"](x)
