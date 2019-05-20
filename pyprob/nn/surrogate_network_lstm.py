@@ -143,9 +143,6 @@ class SurrogateNetworkLSTM(InferenceNetwork):
             if address not in self._layers_address_transitions:
                 self._layers_address_transitions[address] = SurrogateAddressTransition(self._lstm_dim + self._sample_embedding_dim,
                                                                                        None, last_address=True).to(device=util._device)
-            for add, o in self._layers_adress_transitions.item():
-                print(add, o)
-
 
         if layers_changed:
             num_params = sum(p.numel() for p in self.parameters())
