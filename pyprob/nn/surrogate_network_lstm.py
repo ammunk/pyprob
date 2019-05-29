@@ -46,6 +46,7 @@ class SurrogateNetworkLSTM(InferenceNetwork):
         self._address_base = {}
         self._address_to_name = {}
         self._trace_hashes = set([])
+        self._address_path = None
 
     def _init_layers(self):
         self._lstm_input_dim = self._sample_embedding_dim + 2 * (self._address_embedding_dim + self._distribution_type_embedding_dim)
@@ -291,6 +292,9 @@ class SurrogateNetworkLSTM(InferenceNetwork):
         self._original_forward = original_forward
         return self.forward
 
+    def fix_address_transitions(self, address_path):
+        self._address_path = address_path
+
     def forward(self, *args, **kwargs):
         """
         !! NOT TO BE USED AS A PyTorch FORWARD METHOD !!
@@ -301,8 +305,13 @@ class SurrogateNetworkLSTM(InferenceNetwork):
 
         """
         # sample initial address
-        address = self._layers_address_transitions["__init"](None).sample()
+
+        if not self._address_path:
+            address = self._layers_address_transitions["__init"](None).sample()
+        else:
+            address = self._address_path[0]
         prev_variable = None
+        time_step = 1
         while address != "__end":
             surrogate_dist = self._layers_surrogate_distributions[address]
             current_variable = Variable(distribution=surrogate_dist.dist_type,
@@ -312,7 +321,6 @@ class SurrogateNetworkLSTM(InferenceNetwork):
             address_dist = self._layers_address_transitions[address]
             lstm_output = lstm_output.squeeze(0) # squeeze the sequence dimension
             dist = surrogate_dist(lstm_output)
-            # view as (1,-1) to make batch size equal 1
 
             value = state.sample(distribution=dist,
                                  address=self._address_base[address],
@@ -333,7 +341,12 @@ class SurrogateNetworkLSTM(InferenceNetwork):
             sample_embedding = self._layers_sample_embedding[address](smp)
             address_transition_input = torch.cat([lstm_output, sample_embedding], dim=1)
             a_dist = address_dist(address_transition_input)
-            address = a_dist.sample()
+            if not self._address_path:
+                address = a_dist.sample()
+            else:
+                address = self._address_path[time_step]
+
+            time_step += 1
 
             if address == "__unknown":
                 print("Warning: sampled unknown address")

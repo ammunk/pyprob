@@ -46,15 +46,9 @@ class Mixture(Distribution):
                 value = tmp.view(self._batch_length, -1) # skip the batch size in tmp.shape
             else:
                 value = tmp.view(self._batch_length)
-            if value.dim() == 1:
-                # make shape compatible with multivariate normals
-                value = value.unsqueeze(1)
-            lp = torch.logsumexp(self._log_probs +
-                                    torch.stack([d.log_prob(value).sum(dim=1).squeeze(-1) # sum across potential multivariate dimension
-                                                for d in
-                                                self._distributions]).view(-1,
-                                                                            self._batch_length).t(),
-                                    dim=1)
+            lp = torch.logsumexp(self._log_probs + torch.stack([d.log_prob(value).squeeze(-1)
+                                                                for d in self._distributions]).view(-1,
+                                                                            self._batch_length).t(), dim=1)
         return torch.sum(lp) if sum else lp
 
     def sample(self):
