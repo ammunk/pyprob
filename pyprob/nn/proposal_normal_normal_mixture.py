@@ -14,6 +14,8 @@ class ProposalNormalNormalMixture(nn.Module):
         input_shape = util.to_size(input_shape)
         self._ff = EmbeddingFeedForward(input_shape=input_shape, output_shape=torch.Size([3 * self._mixture_components]), num_layers=num_layers, activation=torch.relu, activation_last=None)
         self._total_train_iterations = 0
+        # initialise standard deviations at 0 for stability
+        self._ff._layers[1].weight[mixture_components:2*mixture_components, :].data *= 0
 
     def forward(self, x, prior_variables):
         batch_size = x.size(0)
