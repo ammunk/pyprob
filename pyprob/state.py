@@ -204,7 +204,7 @@ def observe(distribution, value=None, constants={}, name=None, address=None):
 
 
 def sample(distribution, constants={}, control=True, replace=False, name=None,
-           address=None, value=None):
+           address=None, value=None, proposal=None):
     global _current_trace
     global _current_trace_previous_variable
     global _current_trace_replaced_variable_proposal_distributions
@@ -271,10 +271,16 @@ def sample(distribution, constants={}, control=True, replace=False, name=None,
                 if _inference_engine == InferenceEngine.IMPORTANCE_SAMPLING:
                     inflated_distribution = _inflate(distribution)
                     if inflated_distribution is None:
-                        value = distribution.sample() if value is None else value
-                        log_prob = distribution.log_prob(value, sum=True)
-                        log_importance_weight = None
+                        if proposal is not None:
+                            value = proposal.sample() if value is None else value
+                            log_prob = distribution.log_prob(value, sum=True)
+                            log_importance_weight = float(log_prob) - float(proposal.log_prob(value, sum=True))
+                        else:
+                            value = distribution.sample() if value is None else value
+                            log_prob = distribution.log_prob(value, sum=True)
+                            log_importance_weight = None
                     else:
+                        assert proposal is None
                         value = inflated_distribution.sample() if value is None else value
                         log_prob = distribution.log_prob(value, sum=True)
                         log_importance_weight = float(log_prob) - float(inflated_distribution.log_prob(value, sum=True))  # To account for prior inflation
@@ -290,6 +296,8 @@ def sample(distribution, constants={}, control=True, replace=False, name=None,
                     proposal_distribution = _current_trace_inference_network._infer_step(variable,
                                                                                         prev_variable=_current_trace_previous_variable,
                                                                                         proposal_min_train_iterations=_current_trace_inference_network_proposal_min_train_iterations)
+                    if proposal is not None:
+                        proposal_distribution = proposal
                     if replace and _importance_weighting == ImportanceWeighting.IW0: # use prior as proposal for all addresses with replace=True
                         proposal_distribution = distribution
                     value = proposal_distribution.sample() if value is None else value
@@ -328,6 +336,9 @@ def sample(distribution, constants={}, control=True, replace=False, name=None,
                     # print('prev_var address {}'.format(variable.address))
                     address = address_base + '__' + str(instance)
                 else:  # _inference_engine == InferenceEngine.LIGHTWEIGHT_METROPOLIS_HASTINGS or _inference_engine == InferenceEngine.RANDOM_WALK_METROPOLIS_HASTINGS
+                    # fixed value and proposal distribution is not supported for RMH and LMH
+                    assert proposal is None
+                    assert value is None
                     log_importance_weight = None
                     if _metropolis_hastings_trace is None:
                         assert value is None; value = distribution.sample()
@@ -381,12 +392,19 @@ def sample(distribution, constants={}, control=True, replace=False, name=None,
 
             else:  # _trace_mode == TraceMode.PRIOR or _trace_mode == TraceMode.PRIOR_FOR_INFERENCE_NETWORK:
                 if _trace_mode == TraceMode.PRIOR_FOR_INFERENCE_NETWORK:
+                    assert proposal is None
+                    assert value is None
                     address = address_base + '__' + ('replaced' if replace else str(instance))
                 inflated_distribution = _inflate(distribution)
                 if inflated_distribution is None:
-                    value = distribution.sample() if value is None else value
-                    log_prob = distribution.log_prob(value, sum=True)
-                    log_importance_weight = None
+                    if proposal is not None:
+                        value = proposal.sample() if value is None else value
+                        log_prob = distribution.log_prob(value, sum=True)
+                        log_importance_weight = float(log_prob) - float(proposal.log_prob(value, sum=True))
+                    else:
+                        value = distribution.sample() if value is None else value
+                        log_prob = distribution.log_prob(value, sum=True)
+                        log_importance_weight = None
                 else:
                     value = inflated_distribution.sample() if value is None else value
                     log_prob = distribution.log_prob(value, sum=True)
