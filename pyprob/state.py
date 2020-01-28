@@ -160,6 +160,9 @@ def tag(value, name=None, address=None):
 def observe(distribution, value=None, constants={}, name=None, address=None):
     global _current_trace
 
+    if value is not None:
+        value = util.to_tensor(value)
+
     if not _current_trace._rs_stack.isempty():
         raise ValueError('No observation can be within a rejection sampling loop')
 
@@ -201,7 +204,7 @@ def observe(distribution, value=None, constants={}, name=None, address=None):
 
 
 def sample(distribution, constants={}, control=True, replace=False, name=None,
-           address=None):
+           address=None, value=None):
     global _current_trace
     global _current_trace_previous_variable
     global _current_trace_replaced_variable_proposal_distributions
@@ -268,11 +271,11 @@ def sample(distribution, constants={}, control=True, replace=False, name=None,
                 if _inference_engine == InferenceEngine.IMPORTANCE_SAMPLING:
                     inflated_distribution = _inflate(distribution)
                     if inflated_distribution is None:
-                        value = distribution.sample()
+                        value = distribution.sample() if value is None else value
                         log_prob = distribution.log_prob(value, sum=True)
                         log_importance_weight = None
                     else:
-                        value = inflated_distribution.sample()
+                        value = inflated_distribution.sample() if value is None else value
                         log_prob = distribution.log_prob(value, sum=True)
                         log_importance_weight = float(log_prob) - float(inflated_distribution.log_prob(value, sum=True))  # To account for prior inflation
                 elif _inference_engine == InferenceEngine.IMPORTANCE_SAMPLING_WITH_INFERENCE_NETWORK:
@@ -289,7 +292,7 @@ def sample(distribution, constants={}, control=True, replace=False, name=None,
                                                                                         proposal_min_train_iterations=_current_trace_inference_network_proposal_min_train_iterations)
                     if replace and _importance_weighting == ImportanceWeighting.IW0: # use prior as proposal for all addresses with replace=True
                         proposal_distribution = distribution
-                    value = proposal_distribution.sample()
+                    value = proposal_distribution.sample() if value is None else value
                     if distribution.name == "Normal":
                         value = value.view(torch.Size([-1]) + distribution.loc_shape)
 
@@ -327,7 +330,7 @@ def sample(distribution, constants={}, control=True, replace=False, name=None,
                 else:  # _inference_engine == InferenceEngine.LIGHTWEIGHT_METROPOLIS_HASTINGS or _inference_engine == InferenceEngine.RANDOM_WALK_METROPOLIS_HASTINGS
                     log_importance_weight = None
                     if _metropolis_hastings_trace is None:
-                        value = distribution.sample()
+                        value = distribution.sample() if value is None else value
                         log_prob = distribution.log_prob(value, sum=True)
                     else:
                         if address == _metropolis_hastings_site_address:
@@ -347,23 +350,23 @@ def sample(distribution, constants={}, control=True, replace=False, name=None,
                                     proposal_kernel_forward = proposal_kernel_func(_metropolis_hastings_site_value)
                                     alpha = 0.5
                                     if random.random() < alpha:
-                                        value = proposal_kernel_forward.sample()
+                                        value = proposal_kernel_forward.sample() if value is None else value
                                     else:
-                                        value = distribution.sample()
+                                        value = distribution.sample() if value is None else value
                                     log_prob = distribution.log_prob(value, sum=True)
                                     proposal_kernel_reverse = proposal_kernel_func(value)
 
                                     _metropolis_hastings_site_transition_log_prob = torch.log(alpha * torch.exp(proposal_kernel_reverse.log_prob(_metropolis_hastings_site_value, sum=True)) + (1 - alpha) * torch.exp(_metropolis_hastings_site_log_prob)) + log_prob
                                     _metropolis_hastings_site_transition_log_prob -= torch.log(alpha * torch.exp(proposal_kernel_forward.log_prob(value, sum=True)) + (1 - alpha) * torch.exp(log_prob)) + _metropolis_hastings_site_log_prob
                                 else:
-                                    value = distribution.sample()
+                                    value = distribution.sample() if value is None else value
                                     log_prob = distribution.log_prob(value, sum=True)
                             else:
-                                value = distribution.sample()
+                                value = distribution.sample() if value is None else value
                                 log_prob = distribution.log_prob(value, sum=True)
                             reused = False
                         elif address not in _metropolis_hastings_trace.variables_dict_address:
-                            value = distribution.sample()
+                            value = distribution.sample() if value is None else value
                             log_prob = distribution.log_prob(value, sum=True)
                             reused = False
                         else:
@@ -372,7 +375,7 @@ def sample(distribution, constants={}, control=True, replace=False, name=None,
                             try:  # Takes care of issues such as changed distribution parameters (e.g., batch size) that prevent a rescoring of a reused value under this distribution.
                                 log_prob = distribution.log_prob(value, sum=True)
                             except:
-                                value = distribution.sample()
+                                value = distribution.sample() if value is None else value
                                 log_prob = distribution.log_prob(value, sum=True)
                                 reused = False
 
@@ -381,11 +384,11 @@ def sample(distribution, constants={}, control=True, replace=False, name=None,
                     address = address_base + '__' + ('replaced' if replace else str(instance))
                 inflated_distribution = _inflate(distribution)
                 if inflated_distribution is None:
-                    value = distribution.sample()
+                    value = distribution.sample() if value is None else value
                     log_prob = distribution.log_prob(value, sum=True)
                     log_importance_weight = None
                 else:
-                    value = inflated_distribution.sample()
+                    value = inflated_distribution.sample() if value is None else value
                     log_prob = distribution.log_prob(value, sum=True)
                     log_importance_weight = float(log_prob) - float(inflated_distribution.log_prob(value, sum=True))  # To account for prior inflation
 
