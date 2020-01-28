@@ -392,19 +392,12 @@ def sample(distribution, constants={}, control=True, replace=False, name=None,
 
             else:  # _trace_mode == TraceMode.PRIOR or _trace_mode == TraceMode.PRIOR_FOR_INFERENCE_NETWORK:
                 if _trace_mode == TraceMode.PRIOR_FOR_INFERENCE_NETWORK:
-                    assert proposal is None
-                    assert value is None
                     address = address_base + '__' + ('replaced' if replace else str(instance))
                 inflated_distribution = _inflate(distribution)
                 if inflated_distribution is None:
-                    if proposal is not None:
-                        value = proposal.sample() if value is None else value
-                        log_prob = distribution.log_prob(value, sum=True)
-                        log_importance_weight = float(log_prob) - float(proposal.log_prob(value, sum=True))
-                    else:
-                        value = distribution.sample() if value is None else value
-                        log_prob = distribution.log_prob(value, sum=True)
-                        log_importance_weight = None
+                    value = distribution.sample() if value is None else value
+                    log_prob = distribution.log_prob(value, sum=True)
+                    log_importance_weight = None
                 else:
                     value = inflated_distribution.sample() if value is None else value
                     log_prob = distribution.log_prob(value, sum=True)

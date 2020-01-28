@@ -74,7 +74,9 @@ class Model():
                          inference_engine=InferenceEngine.IMPORTANCE_SAMPLING,
                          inference_network=None, observe=None, metropolis_hastings_trace=None,
                          likelihood_importance=1.,
-                         proposal=None, importance_weighting=ImportanceWeighting.IW2, num_z_estimate_samples=None, num_z_inv_estimate_samples=None,
+                         proposal=None, importance_weighting=ImportanceWeighting.IW2,
+                         num_z_estimate_samples=None, num_z_inv_estimate_samples=None,
+                         z_p_gt = None, z_q_gt = None,
                          *args, **kwargs):
         while True:
             state._init_traces(func=self.forward, trace_mode=trace_mode,
@@ -91,22 +93,27 @@ class Model():
             ## Fix trace weights
             if trace_mode == TraceMode.POSTERIOR and importance_weighting == ImportanceWeighting.IW1 and (inference_engine in [InferenceEngine.IMPORTANCE_SAMPLING_WITH_INFERENCE_NETWORK, InferenceEngine.IMPORTANCE_SAMPLING]):
                 for rs_address, rs_entry in trace.rs_entries_dict_address.items():
-                    pass
-                    state._init_traces(trace_mode=trace_mode, func=self.forward, prior_inflation=prior_inflation,
-                                       inference_engine=inference_engine, inference_network=inference_network,
-                                       observe=observe, metropolis_hastings_trace=metropolis_hastings_trace,
-                                       address_dictionary=self._address_dictionary, likelihood_importance=likelihood_importance,
-                                       importance_weighting=importance_weighting)
-                    z_q_estimate = self._estimate_z(trace, rs_address, num_z_estimate_samples,
-                                                    *args, **kwargs)
+                    if z_q_gt is None:
+                        state._init_traces(trace_mode=trace_mode, func=self.forward, prior_inflation=prior_inflation,
+                                        inference_engine=inference_engine, inference_network=inference_network,
+                                        observe=observe, metropolis_hastings_trace=metropolis_hastings_trace,
+                                        address_dictionary=self._address_dictionary, likelihood_importance=likelihood_importance,
+                                        importance_weighting=importance_weighting)
+                        z_q_estimate = self._estimate_z(trace, rs_address, num_z_estimate_samples,
+                                                        *args, **kwargs)
+                    else:
+                        z_q_estimate = z_q_gt
 
-                    state._init_traces(trace_mode=TraceMode.PRIOR, func=self.forward, prior_inflation=prior_inflation,
-                                       inference_engine=inference_engine, inference_network=inference_network,
-                                       observe=observe, metropolis_hastings_trace=metropolis_hastings_trace,
-                                       address_dictionary=self._address_dictionary, likelihood_importance=likelihood_importance,
-                                       importance_weighting=importance_weighting)
-                    z_p_inv_estimate = self._estimate_z_inv(trace, rs_address, num_z_inv_estimate_samples,
-                                                            *args, **kwargs)
+                    if z_p_gt is None:
+                        state._init_traces(trace_mode=TraceMode.PRIOR, func=self.forward, prior_inflation=prior_inflation,
+                                        inference_engine=inference_engine, inference_network=inference_network,
+                                        observe=observe, metropolis_hastings_trace=metropolis_hastings_trace,
+                                        address_dictionary=self._address_dictionary, likelihood_importance=likelihood_importance,
+                                        importance_weighting=importance_weighting)
+                        z_p_inv_estimate = self._estimate_z_inv(trace, rs_address, num_z_inv_estimate_samples,
+                                                                *args, **kwargs)
+                    else:
+                        z_p_inv_estimate = 1.0/z_p_gt
 
                     rs_entry.log_importance_weight = float(np.log(z_q_estimate * z_p_inv_estimate))
                     rs_entry.log_prob = float(np.log(z_p_inv_estimate))
