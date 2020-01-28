@@ -17,18 +17,18 @@ class Mixture(Distribution):
         elif probs is not None:
             self._probs = util.to_tensor(probs)
             self._probs = self._probs / self._probs.sum(-1, keepdim=True)
-            if self._probs.dim() == 1:
-                self._probs = self._probs.unsqueeze(0)
+            #if self._probs.dim() == 1:
+            #    self._probs = self._probs.unsqueeze(0)
             self._log_probs = torch.log(util.clamp_probs(self._probs))
         elif logits is not None:
             self._log_probs = util.clamp_logits(logits)
             self._probs = torch.exp(self._log_probs)
 
         event_shape = torch.Size()
-        if self._log_probs.dim() == 0:
+        if self._log_probs.dim() == 1:
             batch_shape = torch.Size()
             self._batch_length = 0
-        elif self._log_probs.dim() > 0 and self._log_probs.dim() <= 2 :
+        elif self._log_probs.dim() > 1 and self._log_probs.dim() <= 2 :
             batch_shape = torch.Size([self._log_probs.size(0)])
             self._batch_length = self._log_probs.size(0)
         else:
@@ -47,7 +47,8 @@ class Mixture(Distribution):
     def log_prob(self, value, sum=False):
         if self._batch_length == 0:
             value = util.to_tensor(value).squeeze()
-            lp = torch.logsumexp(self._log_probs + util.to_tensor([d.log_prob(value) for d in self._distributions]), dim=0)
+            assert sum == True # Temporary fix
+            lp = torch.logsumexp(self._log_probs + util.to_tensor([d.log_prob(value, sum=True) for d in self._distributions]), dim=0)
         else:
             value = util.to_tensor(value).view(self._batch_length, -1)
             bs = value.size(0)

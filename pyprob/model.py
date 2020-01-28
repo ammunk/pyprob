@@ -89,7 +89,7 @@ class Model():
             trace = state._end_trace(result)
 
             ## Fix trace weights
-            if trace_mode == TraceMode.POSTERIOR and importance_weighting == ImportanceWeighting.IW1 and (inference_engine==InferenceEngine.IMPORTANCE_SAMPLING_WITH_INFERENCE_NETWORK or proposal is not None):
+            if trace_mode == TraceMode.POSTERIOR and importance_weighting == ImportanceWeighting.IW1 and (inference_engine in [InferenceEngine.IMPORTANCE_SAMPLING_WITH_INFERENCE_NETWORK, InferenceEngine.IMPORTANCE_SAMPLING]):
                 for rs_address, rs_entry in trace.rs_entries_dict_address.items():
                     pass
                     state._init_traces(trace_mode=trace_mode, func=self.forward, prior_inflation=prior_inflation,
