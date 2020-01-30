@@ -5,7 +5,8 @@ from termcolor import colored
 from . import InferenceNetwork, EmbeddingFeedForward, ProposalNormalNormalMixture, \
     ProposalUniformTruncatedNormalMixture, ProposalCategoricalCategorical, \
     ProposalPoissonTruncatedNormalMixture, PriorDist, \
-    ProposalGammaTruncatedNormalMixture, ProposalBetaTruncatedNormalMixture
+    ProposalGammaTruncatedNormalMixture, ProposalBetaTruncatedNormalMixture, \
+    ProposalUniformBetaMixture, ProposalUniformBeta
 from .. import util
 from ..distributions import Normal, Uniform, Categorical, Poisson
 
@@ -78,10 +79,23 @@ class InferenceNetworkLSTM(InferenceNetwork):
                                                                       self._sample_embedding_dim,
                                                                       num_layers=1)
                     elif distribution_name == 'Uniform':
-                        proposal_layer = ProposalUniformTruncatedNormalMixture(self._lstm_dim,
-                                                                               variable_shape,
-                                                                               mixture_components=self._proposal_mixture_components,
-                                                                               **var_embedding)
+                        if 'Uniform' in self._proposal_types:
+                            if self._proposal_types['Uniform'] == 'BetaMixture':
+                                proposal_layer = ProposalUniformBetaMixture(self._lstm_dim,
+                                                                            variable_shape,
+                                                                            mixture_components=self._proposal_mixture_components,
+                                                                            **var_embedding)
+                            elif self._proposal_types['Uniform'] == 'Beta':
+                                proposal_layer = ProposalUniformBeta(self._lstm_dim,
+                                                                     variable_shape,
+                                                                     **var_embedding)
+                            else:
+                                raise ValueError(f"Unexpected value for proposal_type['Uniform'] ({self._proposal_types['Uniform']})")
+                        else:
+                            proposal_layer = ProposalUniformTruncatedNormalMixture(self._lstm_dim,
+                                                                                   variable_shape,
+                                                                                   mixture_components=self._proposal_mixture_components,
+                                                                                   **var_embedding)
                         sample_embedding_layer = EmbeddingFeedForward(variable_shape,
                                                                       self._sample_embedding_dim, num_layers=1)
                     elif distribution_name == 'Gamma':

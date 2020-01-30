@@ -28,8 +28,9 @@ def worker_fn(x):
 
 class InferenceNetwork(nn.Module):
     # observe_embeddings example: {'obs1': {'embedding':ObserveEmbedding.FEEDFORWARD, 'reshape': [10, 10], 'dim': 32, 'depth': 2}}
-    def __init__(self, model, observe_embeddings={}, prev_sample_attention=False, prev_sample_attention_kwargs={}, network_type=''):
+    def __init__(self, model, observe_embeddings={}, prev_sample_attention=False, prev_sample_attention_kwargs={}, network_type='', proposal_types={}):
         super().__init__()
+        self._proposal_types = proposal_types
         self._model = model
         self.prev_sample_attention = prev_sample_attention
         self.prev_sample_attention_kwargs = prev_sample_attention_kwargs
@@ -212,6 +213,7 @@ class InferenceNetwork(nn.Module):
         # The following is due to a temporary hack related with https://github.com/pytorch/pytorch/issues/9981 and can be deprecated by using dill as pickler with torch > 0.4.1
         data['inference_network'] = copy.copy(self)
         data['inference_network']._model = None
+        data['inference_network']._proposal_types = None
         data['inference_network']._optimizer = None
         if self._optimizer is None:
             data['inference_network']._optimizer_state = None

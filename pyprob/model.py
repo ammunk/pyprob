@@ -380,7 +380,7 @@ class Model():
                                 variable_embeddings={},
                                 distribution_type_embedding_dim=8,
                                 proposal_mixture_components=10, surrogate=False,
-                                sacred_run=None):
+                                sacred_run=None, proposal_types={}):
 
         state._set_observed_from_inf(list(observe_embeddings.keys()))
 
@@ -412,7 +412,8 @@ class Model():
                                                                       observe_embeddings=observe_embeddings,
                                                                       prev_sample_attention=prev_sample_attention,
                                                                       prev_sample_attention_kwargs=prev_sample_attention_kwargs,
-                                                                      proposal_mixture_components=proposal_mixture_components)
+                                                                      proposal_mixture_components=proposal_mixture_components,
+                                                                      proposal_types=proposal_types)
             elif inference_network == InferenceNetwork.LSTM:
                 self._inference_network = InferenceNetworkLSTM(model=self,
                                                                prev_sample_attention=prev_sample_attention,
@@ -422,7 +423,8 @@ class Model():
                                                                address_embedding_dim=address_embedding_dim,
                                                                distribution_type_embedding_dim=distribution_type_embedding_dim,
                                                                lstm_depth=lstm_depth, variable_embeddings=variable_embeddings,
-                                                               proposal_mixture_components=proposal_mixture_components)
+                                                               proposal_mixture_components=proposal_mixture_components,
+                                                               proposal_types=proposal_types)
             else:
                 raise ValueError('Unknown inference_network: {}'.format(inference_network))
             if pre_generate_layers:

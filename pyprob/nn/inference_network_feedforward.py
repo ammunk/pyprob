@@ -42,8 +42,18 @@ class InferenceNetworkFeedForward(InferenceNetwork):
                         layer = ProposalNormalNormalMixture(self._observe_embedding_dim+self._sample_attention_embedding_dim,
                                                             variable_shape)
                     elif distribution_name == 'Uniform':
-                        layer = ProposalUniformTruncatedNormalMixture(self._observe_embedding_dim+self._sample_attention_embedding_dim,
-                                                                      variable_shape)
+                        if 'Uniform' in self._proposal_types:
+                            if self._proposal_types['Uniform'] == 'BetaMixture':
+                                proposal_layer = ProposalUniformBetaMixture(self._lstm_dim,
+                                                                            variable_shape)
+                            elif self._proposal_types['Uniform'] == 'Beta':
+                                proposal_layer = ProposalUniformBeta(self._lstm_dim,
+                                                                     variable_shape)
+                            else:
+                                raise ValueError(f"Unexpected value for proposal_type['Uniform'] ({self._proposal_types['Uniform']})")
+                        else:
+                            layer = ProposalUniformTruncatedNormalMixture(self._observe_embedding_dim+self._sample_attention_embedding_dim,
+                                                                          variable_shape)
                     elif distribution_name == 'Poisson':
                         layer = ProposalPoissonTruncatedNormalMixture(self._observe_embedding_dim+self._sample_attention_embedding_dim,
                                                                       variable_shape)
