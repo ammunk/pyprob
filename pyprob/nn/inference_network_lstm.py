@@ -205,6 +205,7 @@ class InferenceNetworkLSTM(InferenceNetwork):
                 prev_sample_embedding_attention = torch.Tensor([[]]).to(device=self._device)
         else:
             print('Warning: address of current variable unknown by inference network: {}'.format(current_address))
+            raise Exception(f'Unexpected variable address {current_address} for inference network (temporary exception for SD experiments)')
             success = False
 
         if success:
