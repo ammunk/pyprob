@@ -80,7 +80,10 @@ class Mixture(Distribution):
         if self._mean is None:
             means = torch.stack([d.mean for d in self._distributions])
             if self._batch_length == 0:
-                self._mean = torch.dot(self._probs, means)
+                if means.dim() == 0:
+                    self._mean = torch.dot(self._probs, means)
+                else:
+                    self._mean = torch.matmul(self._probs.view(1, -1), means).squeeze()
             else:
                 self._mean = torch.diag(torch.mm(self._probs, means))
         return self._mean
