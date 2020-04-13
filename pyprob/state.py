@@ -271,7 +271,7 @@ def sample(distribution, constants={}, control=True, replace=False, name=None,
                 if _inference_engine == InferenceEngine.IMPORTANCE_SAMPLING:
                     inflated_distribution = _inflate(distribution)
                     if inflated_distribution is None:
-                        if proposal is not None:
+                        if proposal is not None and not (replace and _importance_weighting == ImportanceWeighting.IW0):
                             value = proposal.sample() if value is None else value
                             log_prob = distribution.log_prob(value, sum=True)
                             log_importance_weight = float(log_prob) - float(proposal.log_prob(value, sum=True))
