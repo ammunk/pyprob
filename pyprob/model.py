@@ -373,7 +373,7 @@ class Model():
                                 variable_embeddings={},
                                 distribution_type_embedding_dim=8,
                                 proposal_mixture_components=10, surrogate=False,
-                                sacred_run=None):
+                                wandb_run=None):
 
         state._set_observed_from_inf(list(observe_embeddings.keys()))
 
@@ -446,7 +446,7 @@ class Model():
                                          distributed_num_buckets=distributed_num_buckets,
                                          num_workers=num_workers,
                                          stop_with_bad_loss=stop_with_bad_loss,
-                                         log_file_name=log_file_name, sacred_run=sacred_run)
+                                         log_file_name=log_file_name, wandb_run=wandb_run)
 
 
     def learn_surrogate_inference_network(self, num_traces, num_traces_end=1e9,
@@ -472,7 +472,7 @@ class Model():
                                           address_embedding_dim=64,
                                           sample_embedding_dim=4,
                                           distribution_type_embedding_dim=8,
-                                          log_file_name=None, ic=False, sacred_run=None):
+                                          log_file_name=None, ic=False, wandb_run=None):
 
         if dataset_dir is None:
             dataset = OnlineDataset(model=self, prior_inflation=prior_inflation)
@@ -523,7 +523,7 @@ class Model():
                                          distributed_num_buckets=distributed_num_buckets,
                                          num_workers=num_workers,
                                          stop_with_bad_loss=stop_with_bad_loss,
-                                         log_file_name=log_file_name, sacred_run=sacred_run)
+                                         log_file_name=log_file_name, wandb_run=wandb_run)
 
         self._original_forward = self.forward
         self._surrogate_forward = self._surrogate_network.get_surrogate_forward(self._original_forward)

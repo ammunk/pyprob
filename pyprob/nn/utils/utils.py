@@ -1,6 +1,6 @@
 import os
 import torch
-from ...distributions import Normal, Uniform, Categorical, Gamma, Beta, MultivariateNormal, Poisson
+from ...distributions import Normal, Uniform, Categorical, Gamma, Beta, MultivariateNormal, Poisson, ImageNormal
 
 
 class MyFile:
@@ -46,22 +46,22 @@ def construct_distribution(name, dist_args):
         return Gamma(**dist_args)
     elif name == 'Beta':
         return Beta(**dist_args)
+    elif name == 'ImageNormal':
+        return ImageNormal(**dist_args)
     else:
         raise NotImplementedError("Distribution not supported to save on disk")
 
-def update_sacred_run(sacred_run, loss, total_train_traces,
+def update_wandb(wandb_run, loss, total_train_traces,
                       total_train_seconds=None, valid=False):
-
-    if sacred_run is not None:
+    if wandb_run is not None:
+        log_dict = {
+                    'traces': total_train_traces,
+                    'train_time': total_train_seconds,
+                    'traces_per_sec': total_train_traces / total_train_seconds
+                   }
         if not valid:
-            sacred_run.info['traces'] = total_train_traces
-            sacred_run.info['train_time'] = total_train_seconds
-            sacred_run.info['traces_per_sec'] = total_train_traces / total_train_seconds
-
-            # for omniboard plotting (metrics)
-            sacred_run.log_scalar('training.loss', loss,
-                                  total_train_traces)
+            log_dict['training.loss'] = loss
         else:
             # for omniboard plotting (metrics)
-            sacred_run.log_scalar('validation.loss', loss,
-                                  total_train_traces)
+            log_dict['validation.loss'] = loss
+        wandb_run.log(log_dict)

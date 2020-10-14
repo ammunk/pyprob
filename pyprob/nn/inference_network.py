@@ -21,7 +21,7 @@ from . import Batch, OfflineDataset, TraceBatchSampler, DistributedTraceBatchSam
 from .optimizer_larc import LARC
 from .. import __version__, util, Optimizer, LearningRateScheduler, ObserveEmbedding
 
-from .utils import update_sacred_run
+from .utils import update_wandb
 
 def worker_fn(x):
     return Batch(x)
@@ -444,7 +444,7 @@ class InferenceNetwork(nn.Module):
                  weight_decay=1e-5, save_file_name_prefix=None, save_every_sec=600,
                  distributed_backend=None, distributed_params_sync_every_iter=10000,
                  distributed_num_buckets=10, num_workers=0,
-                 stop_with_bad_loss=False, log_file_name=None, sacred_run=None):
+                 stop_with_bad_loss=False, log_file_name=None, wandb_run=None):
 
         if not self._layers_initialized:
             self._init_layers_observe_embedding(self._observe_embeddings, example_trace=dataset.get_example_trace())
@@ -564,7 +564,6 @@ class InferenceNetwork(nn.Module):
             epoch += 1
 
             for i_batch, batch in enumerate(iter(dataloader)):
-
                 time_batch = time.time()
                 # Important, a self._distributed_sync_parameters() needs to happen at the very beginning of a training
                 if (distributed_world_size > 1) and (self._total_train_iterations % distributed_params_sync_every_iter == 0):
@@ -635,7 +634,7 @@ class InferenceNetwork(nn.Module):
                     traces_per_second = batch.size * distributed_world_size / (time_batch - time_last_batch)
 
                     # update sacred (if used)
-                    update_sacred_run(sacred_run, loss,
+                    update_wandb(wandb_run, loss,
                                       self._total_train_traces,
                                       total_train_seconds=self._total_train_seconds)
 
@@ -655,7 +654,7 @@ class InferenceNetwork(nn.Module):
                             last_validation_trace = trace - 1
 
                             # update sacred (if used)
-                            update_sacred_run(sacred_run, valid_loss,
+                            update_wandb(wandb_run, valid_loss,
                                               self._total_train_traces,
                                               valid=True)
 
