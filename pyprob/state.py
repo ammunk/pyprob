@@ -72,7 +72,7 @@ _current_rs_partial_trace = None
 
 
 # _extract_address and _extract_target_of_assignment code by Tobias Kohn (kohnt@tobiaskohn.ch)
-def _extract_address(root_function_name):
+def _extract_address(root_function_name, append_rs_entry=True):
     # Retun an address in the format:
     # 'instruction pointer' __ 'qualified function name'
     frame = sys._getframe(2)
@@ -91,7 +91,10 @@ def _extract_address(root_function_name):
         if n == root_function_name:
             break
         frame = frame.f_back
-    return '{}__{}'.format(ip, '__'.join(reversed(names)))
+    ret = '{}__{}'.format(ip, '__'.join(reversed(names)))
+    if append_rs_entry and (not _current_trace._rs_stack.isempty()):
+        ret = '{}_{}'.format(ret, _current_trace._rs_stack.top_entry.address)
+    return ret
 
 
 def _extract_target_of_assignment():
@@ -415,7 +418,7 @@ def rs_start(control=True, name=None, address=None):
 
     # Compute the address and address_base
     if address is None:
-        address_base = _extract_address(_current_trace_root_function_name) + '__' + rejection_sampling_suffix
+        address_base = _extract_address(_current_trace_root_function_name, append_rs_entry=False) + '__' + rejection_sampling_suffix
         # Problematic for nested rejection sampling!
     else:
         address_base = address + '__' + rejection_sampling_suffix
