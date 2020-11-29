@@ -22,6 +22,7 @@ _current_trace_inference_network_proposal_min_train_iterations = None
 _current_trace_previous_variable = None
 _current_trace_replaced_variable_proposal_distributions = {}
 _current_trace_observed_variables = None
+_current_trace_proposals = None # Temporary - for rejection sampling project experiments only
 _current_trace_execution_start = None
 _metropolis_hastings_trace = None
 _metropolis_hastings_site_address = None
@@ -273,8 +274,12 @@ def sample(distribution, constants={}, control=True, name=None,
                 if _inference_engine == InferenceEngine.IMPORTANCE_SAMPLING:
                     inflated_distribution = _inflate(distribution)
                     if inflated_distribution is None:
-                        value = distribution.sample()
-                        log_prob = distribution.log_prob(value, sum=True)
+                        if name in _current_trace_proposals and control and _importance_weighting != ImportanceWeighting.IW0:
+                            proposal_distribution = _current_trace_proposals[name]
+                        else:
+                            proposal_distribution = distribution
+                        value = proposal_distribution.sample()
+                        log_prob = proposal_distribution.log_prob(value, sum=True)
                         log_importance_weight = None
                     else:
                         value = inflated_distribution.sample()
@@ -484,7 +489,8 @@ def _init_traces(func, trace_mode=TraceMode.PRIOR,
                  inference_engine=InferenceEngine.IMPORTANCE_SAMPLING,
                  inference_network=None, observe=None,
                  metropolis_hastings_trace=None, address_dictionary=None,
-                 likelihood_importance=1., importance_weighting=ImportanceWeighting.IW2):
+                 likelihood_importance=1., importance_weighting=ImportanceWeighting.IW2,
+                 proposals=None):
 
     """ Initialize the trace object
 
@@ -507,6 +513,7 @@ def _init_traces(func, trace_mode=TraceMode.PRIOR,
     global _current_trace_inference_network
     global _current_trace_inference_network_proposal_min_train_iterations
     global _current_trace_observed_variables
+    global _current_trace_proposals
     global _address_dictionary
 
     _address_dictionary = address_dictionary
@@ -515,6 +522,11 @@ def _init_traces(func, trace_mode=TraceMode.PRIOR,
         _current_trace_observed_variables = {}
     else:
         _current_trace_observed_variables = observe
+
+    if proposals is None:
+        _current_trace_proposals = {}
+    else:
+        _current_trace_proposals = proposals
 
     _current_trace_inference_network = inference_network
     if _current_trace_inference_network is None:

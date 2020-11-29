@@ -74,7 +74,7 @@ class Model():
                          inference_engine=InferenceEngine.IMPORTANCE_SAMPLING,
                          inference_network=None, observe=None, metropolis_hastings_trace=None,
                          likelihood_importance=1.,
-                         proposal=None, importance_weighting=ImportanceWeighting.IW2, num_z_estimate_samples=None, num_z_inv_estimate_samples=None,
+                         proposals=None, importance_weighting=ImportanceWeighting.IW2, num_z_estimate_samples=None, num_z_inv_estimate_samples=None,
                          *args, **kwargs):
         while True:
             state._init_traces(func=self.forward, trace_mode=trace_mode,
@@ -83,13 +83,14 @@ class Model():
                             metropolis_hastings_trace=metropolis_hastings_trace,
                             address_dictionary=self._address_dictionary,
                             likelihood_importance=likelihood_importance,
-                            importance_weighting=importance_weighting)
+                            importance_weighting=importance_weighting,
+                            proposals=proposals)
             state._begin_trace()
             result = self.forward(*args, **kwargs)
             trace = state._end_trace(result)
 
             ## Fix trace weights
-            if trace_mode == TraceMode.POSTERIOR and importance_weighting == ImportanceWeighting.IW1 and (inference_engine==InferenceEngine.IMPORTANCE_SAMPLING_WITH_INFERENCE_NETWORK or proposal is not None):
+            if trace_mode == TraceMode.POSTERIOR and importance_weighting == ImportanceWeighting.IW1 and (inference_engine==InferenceEngine.IMPORTANCE_SAMPLING_WITH_INFERENCE_NETWORK or proposals is not None):
                 for rs_address, rs_entry in trace.rs_entries_dict_address.items():
                     pass
                     state._init_traces(trace_mode=trace_mode, func=self.forward, prior_inflation=prior_inflation,
