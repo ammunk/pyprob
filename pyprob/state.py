@@ -276,11 +276,14 @@ def sample(distribution, constants={}, control=True, name=None,
                     if inflated_distribution is None:
                         if name in _current_trace_proposals and control and _importance_weighting != ImportanceWeighting.IW0:
                             proposal_distribution = _current_trace_proposals[name]
+                            value = proposal_distribution.sample()
+                            log_prob = distribution.log_prob(value, sum=True)
+                            log_importance_weight = float(log_prob) - float(proposal_distribution.log_prob(value, sum=True))
                         else:
                             proposal_distribution = distribution
-                        value = proposal_distribution.sample()
-                        log_prob = proposal_distribution.log_prob(value, sum=True)
-                        log_importance_weight = None
+                            value = proposal_distribution.sample()
+                            log_prob = distribution.log_prob(value, sum=True)
+                            log_importance_weight = None
                     else:
                         value = inflated_distribution.sample()
                         log_prob = distribution.log_prob(value, sum=True)
